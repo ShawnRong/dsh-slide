@@ -9,8 +9,9 @@ Usage:
 Exit codes: 0 = clean enough, 1 = hard failures, 2 = cannot read the deck.
 
 The linter is deliberately opinionated. It encodes the deck-design standard:
-readable type, low density, varied composition, and copy without AI tells.
-It does not judge whether the argument is right.
+readable type, low density, varied composition, copy without AI tells, and a
+visual structure on every content slide (tables are appendix material). It does
+not judge whether the argument is right.
 """
 from __future__ import annotations
 
@@ -25,6 +26,8 @@ from pathlib import Path
 try:
     from pptx import Presentation
     from pptx.enum.dml import MSO_FILL
+    from pptx.enum.shapes import MSO_SHAPE_TYPE
+    from pptx.shapes.connector import Connector
 except ImportError:
     print("deck_lint.py needs python-pptx: pip install python-pptx", file=sys.stderr)
     sys.exit(2)
@@ -88,6 +91,11 @@ class SlideInfo:
     title: str = ""
     density: int = 0
     dominant_ratio: float = 0.0
+    tables: list[tuple[int, int]] = field(default_factory=list)
+    connectors: int = 0
+    visual_blocks: int = 0
+    prose_units: int = 0
+    label_count: int = 0
 
 
 def emu_to_in(value) -> float:
@@ -161,7 +169,19 @@ def shape_text_runs(shape):
                     if not text:
                         continue
                     size = paragraph.font.size.pt if paragraph.font.size else None
-                    yield text, size, rgb_of(paragraph.font.color), bool(paragraph.font.bold), True
+                    color = rgb_of(paragraph.font.color)
+                    bold = bool(paragraph.font.bold)
+                    if size is None or color is None:
+                        for run in paragraph.runs:
+                            if run.text.strip():
+                                if size is None and run.font.size is not None:
+                                    size = run.font.size.pt
+                                if color is None:
+                                    color = rgb_of(run.font.color)
+                                if run.font.bold is not None:
+                                    bold = bool(run.font.bold)
+                                break
+                    yield text, size, color, bold, True
 
 
 def background_for(shape, slide, slide_shapes, bg_default):
@@ -218,9 +238,15 @@ def read_deck(path: Path) -> tuple[list[SlideInfo], float, float]:
         for shape, depth in iter_shapes(top_shapes):
             if shape.shape_type == 13:
                 continue
+            if isinstance(shape, Connector):
+                info.connectors += 1
+            if getattr(shape, "has_table", False):
+                info.tables.append((len(shape.table.rows), len(shape.table.columns)))
+            shape_units = 0
             for text, size, color, bold, is_table in shape_text_runs(shape):
                 if PAGE_NO.match(text):
                     continue
+                shape_units += units(text)
                 info.texts.append(TextItem(
                     slide=index,
                     text=text,
@@ -239,12 +265,27 @@ def read_deck(path: Path) -> tuple[list[SlideInfo], float, float]:
                 h = emu_to_in(shape.height)
                 w = emu_to_in(shape.width)
                 l = emu_to_in(shape.left)
-                info.dominant_ratio = max(info.dominant_ratio, (w * h) / (width * height))
+                area = (w * h) / (width * height)
+                info.dominant_ratio = max(info.dominant_ratio, area)
+                if (0.004 <= area <= 0.60
+                        and shape.shape_type != MSO_SHAPE_TYPE.TEXT_BOX
+                        and shape_units <= 8):
+                    info.visual_blocks += 1
                 if t > 1.05 and t + h < height - 0.55 and w * h > 0.45:
                     body.append((round(l / 0.25), round(t / 0.25),
                                  round(w / 0.25), round(h / 0.25)))
         info.body_signatures = tuple(sorted(body))
         info.density = sum(units(item.text) for item in info.texts)
+        for item in info.texts:
+            if item.top < 1.75 and (item.size or 0) >= 20:
+                continue
+            if item.top > height - 1.2:
+                continue
+            n = units(item.text)
+            if n >= 14:
+                info.prose_units += n
+            elif n >= 1:
+                info.label_count += 1
 
         # Title: a placeholder if present, else the largest top text.
         candidates = [item for item in info.texts if item.top < 1.75 and units(item.text) >= 3]
@@ -461,6 +502,89 @@ def lint(path: Path):
             [n for n, _ in dense])
         scores["design"] -= 8
 
+    # Tables on content slides, prose budget, and visual structure.
+    titles = {slide.number: slide.title for slide in slides}
+    content_tables = [
+        (slide.number, dims) for slide in slides for dims in slide.tables
+        if not re.search(r"附录|appendix", titles.get(slide.number, ""), re.I)
+    ]
+    stats["tables"] = len(content_tables)
+    if content_tables:
+        examples = ", ".join(f"slide {n} ({r}×{c})" for n, (r, c) in content_tables[:5])
+        add(findings, "warn", "layout.table",
+            f"{len(content_tables)} table(s) on content slides: {examples}. "
+            "A table is appendix material; rebuild it as a boundary, trunk + glue, or 2×2 diagram. "
+            "If this is the appendix, put 附录 in the title.",
+            [n for n, _ in content_tables])
+        scores["design"] -= min(8, 4 * len(content_tables))
+
+    prose = [(slide.number, slide.prose_units) for slide in slides]
+    stats["max_prose"] = max((p for _, p in prose), default=0)
+    stats["median_prose"] = sorted(p for _, p in prose)[len(prose) // 2] if prose else 0
+    over_prose = [p for p in prose if p[1] > 120]
+    very_over = [p for p in prose if p[1] > 180]
+    if very_over:
+        worst_slide, worst = max(very_over, key=lambda item: item[1])
+        add(findings, "hard", "copy.prose-budget",
+            f"{len(very_over)} slide(s) over 180 units of sentence-length text; target is 60 (diagram captions inflate the count). "
+            f"Worst: slide {worst_slide} ({worst}). Cut prose to labels, split the slide, or move detail to the footnote.",
+            [n for n, _ in very_over])
+        scores["design"] -= min(15, 5 * len(very_over))
+    elif over_prose:
+        worst_slide, worst = max(over_prose, key=lambda item: item[1])
+        add(findings, "warn", "copy.prose-budget",
+            f"{len(over_prose)} slide(s) over 120 units of sentence-length text; target is 60 (diagram captions inflate the count). "
+            f"Worst: slide {worst_slide} ({worst}). Convert the sentence blocks to labels or split the slide.",
+            [n for n, _ in over_prose])
+        scores["design"] -= min(8, 4 * len(over_prose))
+
+    labels = [(slide.number, slide.label_count) for slide in slides]
+    stats["max_labels"] = max((n for _, n in labels), default=0)
+    label_heavy = [item for item in labels if item[1] > 30]
+    if label_heavy:
+        worst_slide, worst = max(label_heavy, key=lambda item: item[1])
+        add(findings, "warn", "layout.labels",
+            f"{len(label_heavy)} slide(s) over 30 labels; the cap is 24. "
+            f"Worst: slide {worst_slide} ({worst}). Merge rows, drop a card, or split the slide.",
+            [n for n, _ in label_heavy])
+        scores["design"] -= min(6, 3 * len(label_heavy))
+
+    listy = []
+    for slide in slides:
+        shorts = [
+            item for item in slide.texts
+            if 3 <= units(item.text) <= 13
+            and item.size is not None and 9 <= item.size <= 16
+            and not item.nested
+        ]
+        has_big = any((item.size or 0) >= 32 for item in slide.texts)
+        if (len(shorts) >= 4 and not has_big and slide.connectors == 0
+                and slide.visual_blocks == 0 and not slide.tables and not slide.has_picture):
+            listy.append(slide.number)
+    stats["list_slides"] = len(listy)
+    if listy:
+        add(findings, "warn", "layout.list",
+            f"{len(listy)} slide(s) are lists of short text blocks with no structure. "
+            "If these are labels attached to a diagram, keep them; otherwise rebuild as a boundary, "
+            "swimlane, tree, or staircase.",
+            listy)
+        scores["design"] -= min(9, 3 * len(listy))
+
+    texty = [
+        slide.number for slide in slides
+        if slide.prose_units >= 60
+        and slide.connectors == 0
+        and slide.visual_blocks < 4
+        and not slide.tables
+        and not slide.has_picture
+    ]
+    if texty:
+        add(findings, "warn", "layout.text-only",
+            f"{len(texty)} slide(s) are prose in text boxes: no connectors, no table, no picture, "
+            "and fewer than four visual blocks. Give the content a structure or make it a statement.",
+            texty)
+        scores["design"] -= min(10, 3 * len(texty))
+
     shape_counts = [slide.shape_count for slide in slides]
     avg_shapes = sum(shape_counts) / max(1, len(shape_counts))
     stats["avg_shapes"] = round(avg_shapes, 1)
@@ -561,6 +685,7 @@ def render_text(path: Path, findings, scores, stats) -> str:
         f"deck_lint  ·  {path}",
         f"{stats['slides']} slides  ·  {stats.get('avg_shapes', 0)} shapes/slide  ·  "
         f"{stats.get('median_density', 0)} body units/slide  ·  "
+        f"max prose {stats.get('max_prose', 0)}  ·  "
         f"min {stats.get('min_font', '?')} pt  ·  median {stats.get('median_font', '?')} pt",
         f"Content {scores['content']}/100   Design {scores['design']}/100   "
         f"Overall {scores['overall']}/100",

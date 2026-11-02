@@ -4,11 +4,21 @@ The user should see the deck while it is being built, not after. Publish the cur
 
 The default batch size is 3. Honor an explicit different cadence from the user. In the commands below, `$S` is this skill's `scripts/` directory.
 
+## Structure check (before each batch)
+
+Look at the three storyboard lines before building:
+
+- Each slide names a structure from `DIAGRAM-PATTERNS.md`. "List" and "table" are not structures.
+- No two consecutive slides use the same structure.
+- Prose per slide is ≤ 60 characters; labels ≤ 24 and ≤ 12 characters each.
+- No table on a content slide; tables go to the appendix.
+- If a slide fails, redesign it before it is built. It is cheaper than fixing a rendered page.
+
 ## The loop
 
 1. **Build three slides.** No more than three without publishing. If the deck ends mid-batch, the last batch can be one or two.
 2. **Render the three slides to PNG.** 1600–1920 px wide is enough to read the body text. For a local `.pptx`, load the `office-render` skill and use its LibreOffice Kit CLI with `render --pages "1,2,3"`; `pptx-deck-edit/scripts/render.sh` also works. For a Google deck, use `google_slides pdf`.
-3. **Compose a 3-up grid and publish it.** Run `python3 $S/checkpoint.py --out work/<deck>/checkpoints/b1/sheet.png --title "第 1–3 页" --start 1 <three PNGs>`. Post the grid inline with a one-line summary of what this batch contains. The grid is the progress view; the individual PNGs are for detailed copy review.
+3. **Compose a 3-up grid and publish it.** Run `python3 $S/checkpoint.py --out work/<deck>/checkpoints/b1/sheet.png --title "第 1–3 页" --start 1 <three PNGs>`. Post the grid inline with a one-line summary of what this batch contains, and name the structures: `boundary → swimlane → trunk + glue`. The grid is the progress view; the individual PNGs are for detailed copy review.
 4. **Add the links.** The local `.pptx` path, and the Google Slides URL when the deck already exists there. If the link opens the whole deck, say which page range this batch covers. For a new deck, do not import a fresh Google Slides file at every checkpoint; import once when the deck is accepted.
 5. **Say what is next.** One line: "接下来做第 4–6 页：现状痛点、边界、设计原则." Add a question only if a decision would change the next batch. Make clear you are continuing.
 6. **Continue to the next three.** Do not wait for a reply in continuous mode. A checkpoint is not delivery, and it is not a permission request.
@@ -26,6 +36,7 @@ If the mode is unclear, default to continuous and say so once: "我按连续模�
 
 ```text
 第 1–3 页做好了：封面、执行摘要、议程。
+结构：cover → stat row → statement。文字：每页 ≤ 60 字。
 
 ![第 1–3 页](work/deck/checkpoints/b1/sheet.png)
 
@@ -44,6 +55,7 @@ Adjust the language to the user's language. In continuous mode, do not end with 
 - The 3-up grid is the default progress image. If the user wants to read body copy or comment line by line, also post the three individual PNGs or the full-size slide.
 - `present` is the progress channel in a continuous run. Call it with the grid after each batch, not only at the end.
 - If `present` is unavailable, include the grids in the final message and name the batch folders so the user can open them.
+- The grid must show the structure at thumbnail size. If the three slides read as three text pages, the batch is not ready to publish.
 - If the batch is a Google Slides file, use the Google PDF render, not a local LibreOffice render, because Google wraps text differently.
 - If the deck is a local `.pptx` and no renderer is available, import it once, export the Google PDF, and use that render. Do not guess from the XML.
 

@@ -1,6 +1,6 @@
 {
   "name": "@local/dsh-slide",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "private": true,
   "type": "module",
   "description": "Google Slides deck studio for DSH: bundled deck-design and pptx-deck-edit skills, Google sign-in, a google_slides tool, and a Decks panel for decks the agent touched.",

@@ -2,7 +2,8 @@
 
 A DSH extension for building and editing slide decks. It adds:
 
-- two bundled skills — **`deck-design`** for building or rebuilding a deck with a content and layout standard, and **`pptx-deck-edit`** for edits that preserve an existing one;
+- two bundled skills — **`deck-design`** for building or rebuilding a deck with a diagram-first layout standard and per-slide text budgets, and **`pptx-deck-edit`** for edits that preserve an existing one;
+- a **diagram-first pattern catalog** (boundary, swimlane, tree, staircase, trunk + glue, and more) with a python-pptx geometry kit, plus `deck_lint.py` checks for tables, prose walls, and text-only slides;
 - a **Google account login** flow in **Settings → Google Slides**;
 - a **`google_slides`** agent tool for listing, exporting, importing, and PDF-rendering Google Slides decks.
 

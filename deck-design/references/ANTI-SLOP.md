@@ -113,6 +113,42 @@ A logo is a supplied asset, not a design element. If the logo in the file was dr
 - Do not scale a brand-guide display lockup into a footer. Use the template's footer size; if the tagline is unreadable, use the compact mark, not a bigger lockup. A footer logo shrunk until its tagline is noise is slop, and so is a footer logo enlarged until it competes with the page.
 - If the template requires a logo and no asset is supplied, ask for the asset. Do not recreate it. If the template has no mark, omit it.
 
+### 10. Bullet-and-table autopilot
+
+Four bullets, a four-column table, or four equal cards is not a layout. It is the absence of one: the same shape would hold any topic. The audience sees a list, so they read the words and miss the relationship.
+
+The tell is structural, not verbal. If you can move the four rows into any other deck without changing the slide, it has no structure.
+
+| Slop | Rewrite |
+|---|---|
+| 四项职责：身份、角色、网关、连接器 | Boundary: two responsibility banks, the token on the seam, three contract chips. |
+| 4 列表格：组件 / 许可证 / 作用 / 缺口 | Trunk + glue: two buy cards under 主干, one self-built card under 胶水, a side rail. |
+| 六步流程排成两行卡片 | Staircase: four stages rise left to right; the rail anchors the order. |
+| 三层角色写成三行文字 | Tree: one allocation point, two execution sides, four object cards. |
+
+Rules:
+
+- If the content is a relationship, a process, or a taxonomy, choose a structure from `DIAGRAM-PATTERNS.md` before writing the copy.
+- A table belongs in the appendix. On a content slide, it is a diagram that has not been drawn yet.
+- A bullet list with four or more items is a prompt to find a structure, not a final layout.
+- Equal visual weight for unequal things is a lie. One card, one branch, or one quadrant earns the accent.
+
+### 11. The text wall
+
+A paragraph on a slide is a document page that got lost. If the block runs to three lines at body size, the slide is asking the audience to read instead of look.
+
+| Slop | Rewrite |
+|---|---|
+| 发布或回退时，Agent、指标平台、知识库都无需重启或重新部署，照常运行；登录凭证下次刷新时自动拿到新角色，约 15–30 分钟（估算）。 | 不停机、不重新部署。凭证下次刷新生效，约 15–30 分钟（估算）。 |
+| 每一跳带的是同一个用户身份；任何一跳说不清是谁，就拒绝。 | 每一跳都带同一个身份。说不清是谁，就拒绝。 |
+
+Rules:
+
+- ≤ 60 characters of prose per slide; labels do not count.
+- No text block over two lines at its own size.
+- The title is the only full sentence the slide needs.
+- If the paragraph is the point, the slide is a statement: set it at 32–44 pt and delete everything else.
+
 ## Banned list
 
 Treat these as hard fails in client-facing copy unless the user explicitly asks for the phrase:
@@ -139,6 +175,8 @@ Do this on the outline before layout, and again on the built deck.
 5. **Read-aloud test.** If a sentence cannot be said in one breath, split it. If it sounds like a press release, rewrite it.
 6. **Cut 30%.** Delete one sentence per slide. Then delete one more if the slide still works.
 7. **Source test.** Every number gets a source, an assumption, or a range with the assumption stated once.
+8. **Structure test.** Name the structure in one word. If it is "list" or "table", rebuild it from `DIAGRAM-PATTERNS.md` before styling.
+9. **Budget test.** Count the prose characters (≤ 60) and the labels (≤ 24, ≤ 12 characters each). If over, the slide is two slides.
 
 ## Good writing sounds like this
 

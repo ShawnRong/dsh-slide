@@ -5,6 +5,7 @@ A small system beats a large template. These are the defaults. A supplied brand 
 ## Canvas and grid
 
 - 16:9, 13.333 × 7.5 in (13.333 in = 33.87 cm).
+- **Brand templates at 10 × 5.625 in** are the same 16:9 shape. Use the template's own margins and type scale (often 24/18/15/12/9); multiply the fractions, not the body text. A 12 pt floor still holds.
 - Margins: 0.6 in top/bottom, 0.65 in left/right. Keep a 1.1 in bottom band for source, page number, and logo.
 - Content band: 0.6–6.4 in = 5.8 in with a footer; 6.3 in without. The title and body together fill 70–85% of it.
 - Space math — vertical budget, heading stability, footer band, width and image rules: `SPATIAL.md`.
@@ -21,6 +22,8 @@ A small system beats a large template. These are the defaults. A supplied brand 
 | H2 | 22–24 | Semibold | 1.2 | Section opener or big number |
 | H3 | 17–18 | Semibold | 1.25 | Card heading |
 | Body | 14–16 | Regular | 1.35–1.45 | Chinese; 1.2–1.3 Latin |
+| Diagram label | 10–12 | Regular | 1.2–1.3 | Node caption, edge label, gate |
+| Node title | 12–15 | Semibold | 1.2 | The name inside a box |
 | Small | 11–12 | Regular | 1.3 | Labels, axis, table cells |
 | Caption | 9–10 | Regular | 1.25 | Source, footnote, page number; never below 9 |
 
@@ -37,11 +40,13 @@ Rules:
 
 Per content slide:
 
-- One claim, ≤ 5 supporting points, ≤ 3 columns.
-- ≤ 90 Chinese characters or ≤ 45 English words of body copy (titles and footers excluded).
-- ≤ 12 visible shapes, including cards and rules. More than that is decoration or a diagram that needs simplifying.
-- One number per stat; no more than four stats in a row.
-- A table is a last resort, not a layout. If a table has more than 6 rows or 5 columns, split it or move it to an appendix.
+- One claim, one structure. If the slide needs "and" or "also", it is two slides.
+- **≤ 60 Chinese characters or ≤ 30 English words of prose** (title, labels, footnote excluded).
+- **≤ 24 labels, each ≤ 12 characters**, and no text block over two lines. A label names a node; it does not explain it.
+- ≤ 12 visible shapes for a card or statement slide. A diagram may exceed this, but ≤ 7 nodes and ≤ 24 labels.
+- One number per stat; one stat row per deck section.
+- **No table on a content slide.** Tables are appendix material. A comparison is a boundary, trunk + glue, or 2×2.
+- If the copy does not fit, cut it or split the slide. Never shrink below the body floor.
 
 ## Layout archetypes
 
@@ -83,11 +88,14 @@ Only when the deck changes subject. The line is a question or a claim, not "01. 
 
 ### 6. Diagram
 
+The ten reusable structures are in `DIAGRAM-PATTERNS.md`: boundary, swimlane, tree, staircase, trunk + glue, layer stack, 2×2, stat row, payload, decision cards. Use one of them before inventing a layout.
+
 - ≤ 7 nodes, one reading direction (left→right or top→bottom).
 - Label the edges with verbs; an unlabelled arrow is decoration.
 - One accent path; everything else in ink/grey.
 - Put the explanation in the title, not in a paragraph under the diagram.
-- Do not use shadows, 3D, or rounded rectangles as a default.
+- Labels, not prose: a node holds a name and at most one line.
+- Do not use shadows, 3D, or perspective. One corner radius if the brand uses it; otherwise square.
 
 ### 7. Scenario / timeline
 

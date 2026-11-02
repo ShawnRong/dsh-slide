@@ -28,7 +28,7 @@ bash $S/render.sh $W/preview-b1.pptx $W/renders/b1   # -> slide-*.png + grid.png
 ## Phases
 1. **Source.** Copy the input to `original.pptx` in a fresh working dir. Never write to the original file or the original cloud file.
 2. **Unpack & catalog.** Unpack, run `inventory.py`, render the original once (`renders/original/`). Create `NOTES.md` from `references/NOTES.template.md`: layout catalog (which slide uses which layout, recurring shapes, fonts).
-3. **Plan.** Write a storyboard in `NOTES.md`: per slide — change / keep, and why. List open content questions (facts, numbers, scope, tone, conflicting slides). Ask the user and record answers under Decisions before editing affected slides.
+3. **Plan.** Write a storyboard in `NOTES.md`: per slide — change / keep, and why. List open content questions (facts, numbers, scope, tone, conflicting slides). Ask the user and record answers under Decisions before editing affected slides. When a slide is a list or a table and the content is a relationship, a process, or a taxonomy, use `../deck-design/references/DIAGRAM-PATTERNS.md` to rebuild it in the deck's own palette; preserve the brand, not the bad layout.
 4. **Edit in batches of 2–3 slides.**
    - Change text inside existing `<a:r><a:t>` runs; keep `<a:rPr>` so fonts survive. When merging runs, keep the first run's `rPr`.
    - To add an element, clone a similar shape: `clone_shape.py` gives it a fresh unique id and new text. Adjust `<a:off>`/`<a:ext>` (EMU, 914400 per inch) if needed.
@@ -36,7 +36,7 @@ bash $S/render.sh $W/preview-b1.pptx $W/renders/b1   # -> slide-*.png + grid.png
    - Visible text is often split across runs (e.g. `Sep` + ` 2026`). Grep `<a:t>` before a find/replace; edit the run that holds each piece.
    - Escape `& < >` in text. Notes are in `ppt/notesSlides/notesSlideN.xml` (slide N ≠ notes N; follow the slide's `.rels`).
 5. **Verify each batch.** `pack.py` (validates every XML part) -> `render.sh` -> look at every changed slide PNG and the grid. Check overflow, unwanted wrapping, overlaps, clipped text, font substitution. Fix or revert, then log the batch in `NOTES.md`.
-6. **Finish.** Pack the final `.pptx`, render a final grid, diff text vs original (`inventory.py` on both). Optional Google: `gdrive.py import` creates a NEW Slides file; then `gdrive.py pdf <NEW_ID>` and render the PDF (`render.sh` accepts PDF) — Google wraps text differently from LibreOffice, so check again and report differences.
+6. **Finish.** Pack the final `.pptx`, render a final grid, diff text vs original (`inventory.py` on both). Optional Google: `gdrive.py import` creates a NEW Slides file; use it **once, after the final pack** — not per batch. Then `gdrive.py pdf <NEW_ID>` and render the PDF (`render.sh` accepts PDF); Google wraps text differently from LibreOffice, so check again and report differences.
 
 ## Rules
 - Never modify the original; always output new files.
@@ -44,6 +44,7 @@ bash $S/render.sh $W/preview-b1.pptx $W/renders/b1   # -> slide-*.png + grid.png
 - Ask before content decisions (meaning, numbers, scope); fix typos/formatting on your own and log them.
 - Keep `NOTES.md` current so another agent can resume from it.
 - Prefer smallest edit: shorten text before shrinking fonts; shrink before moving shapes.
+- One request, one Slides file. Import the final deck once; never import every batch or every revision.
 
 ## Failure modes
 - `pack.py` reports XML error -> fix the named part (usually unescaped `&` or unclosed tag).

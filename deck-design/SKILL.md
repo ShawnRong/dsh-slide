@@ -1,5 +1,5 @@
 ---
-description: Build or rebuild a slide deck from scratch, notes, or a source document: argument, anti-slop copy, layout system, a lint + visual gate, and a 3-up progress grid every three slides. Use for presentations, proposals, reports, 演示文稿, or deck redesigns. For small edits inside an existing deck, use pptx-deck-edit.
+description: Build or rebuild a slide deck from scratch, notes, or a source document: argument, anti-slop copy, diagram-first layouts, per-slide text budgets, a lint + visual gate, and a 3-up progress grid every three slides. Use for presentations, proposals, reports, 演示文稿, or deck redesigns. For small edits inside an existing deck, use pptx-deck-edit.
 ---
 
 # deck-design
@@ -18,8 +18,9 @@ Design for the back of the room. A deck is read in sequence, so the titles alone
 - One thesis, stated on the cover and repeated in the close.
 - Every content slide makes one claim. The title is the claim, not the topic.
 - A reader who only reads titles gets the argument.
+- **A content slide is a structure with labels.** Pick the structure before the copy. A bullet list or a table is not a structure.
+- **Copy budget: ≤ 60 Chinese characters of prose per slide** (≤ 30 English words), ≤ 24 labels of ≤ 12 characters, and no text block over two lines. If it does not fit, cut or split; never shrink.
 - Body text is readable at presentation size: body 12 pt minimum, 14–16 pt default; 9–10 pt only for source, footnote, and page number.
-- Density is a design decision: ≤ 90 Chinese characters (or ≤ 45 English words) of body copy per slide.
 - No template autopilot: at least four distinct body compositions in a deck of ten or more slides.
 - No AI tells: no "不是 A，而是 B", no "一页看懂", no "这才是真正的…", no meta-commentary about the document or the model.
 - The user sees every third slide while the deck is being built. No silent 20-slide run.
@@ -30,6 +31,8 @@ Design for the back of the room. A deck is read in sequence, so the titles alone
 - A checkpoint is a progress post, not a stop. Continue unless the user asked for interactive review or a decision blocks the next batch.
 - Do not describe a slide you have not rendered.
 - Do not invent section labels or brand marks. A section tag must match the agenda; a logo must be the supplied asset, and a template footer logo stays.
+- **One structure per slide.** Name it from `references/DIAGRAM-PATTERNS.md`: boundary, swimlane, tree, staircase, trunk + glue, layer stack, 2×2, stat row, payload, or decision cards. If no structure fits, the slide is a statement or an appendix table, not a bullet list.
+- **Tables are appendix material.** A table on a content slide is a slide that has not been designed; rebuild it as a comparison diagram.
 - Change only what was asked. When the user names a text, a number, or a colour, leave every other slide, box, and style alone; propose a broader change instead of applying it.
 - Do not add slides, sections, stats, stock images, or decoration the brief did not ask for. Every element earns its place; ask before expanding the scope.
 - When adding to an existing deck, match its type scale, palette, chart style, spacing, and copy voice before adding anything new.
@@ -40,12 +43,31 @@ Design for the back of the room. A deck is read in sequence, so the titles alone
 ## Workflow
 
 1. **Brief.** Write five lines: audience, decision they must make, one-sentence thesis, three pieces of evidence, what is explicitly out of scope. Ask only where an answer changes the deck; the protocol is `references/QUESTIONS.md`. With no one to answer, decide and state the assumptions in one line. If the deck carries a brand, ask for the logo file and fonts, and keep the template's footer logo. If there is no asset, ask for it rather than recreate it. A missing number is a bracketed placeholder, not a question.
-2. **Outline.** One line per slide, each line a claim. No layout yet. Delete any slide whose claim is already implied by another.
-3. **Storyboard.** Add a layout archetype and the single key line to each outline entry. Check rhythm: no more than two consecutive slides with the same archetype; put a statement or visual break after every three content slides.
-4. **Build and copy-pass in batches of three.** Use `python-pptx` or `pptx-deck-edit` on the supplied template. Keep one type scale, one grid, one accent colour. Run the rules in `references/ANTI-SLOP.md` before posting: read every title alone; if it is a label ("现状与目标", "方案设计"), rewrite it as a claim. Then run the checkpoint in `references/REVIEW-CADENCE.md`: render the three slides, compose a 3-up grid, post it with a one-line summary and links, and continue. Ask a question only if a decision blocks the next batch. End the turn only if the user asked for interactive review.
-5. **Lint.** Run `python3 $S/deck_lint.py deck.pptx`, where `S` is this skill's `scripts/` directory. Fix hard failures and anything that pulls the score below 80. Run it on the full deck before delivery; a partial deck can be linted at any checkpoint.
+2. **Outline.** One line per slide: claim, structure, and label budget — `04 — 分工按谁理解数据模型切 — boundary — 8 labels + 1 statement`. No visual styling yet. Delete any slide whose claim is already implied by another; if no structure fits, the slide is a statement or it is cut.
+3. **Storyboard.** Add the layout archetype, the structure, and the single key line. Sketch the structure as ASCII (nodes, edges, rail); count nodes (≤ 7) and labels (≤ 24). Check rhythm: no more than two consecutive slides with the same archetype; no table or bullet list; put a statement or visual break after every three content slides.
+4. **Build and copy-pass in batches of three.** Use `python-pptx` or `pptx-deck-edit` on the supplied template. Build the geometry first — `scripts/diagram_kit.py` provides boxes, edges, dots, branches, staircase risers, chips, and a content frame — then place the labels. If you start with a text box, the slide will be a list. Keep one type scale, one grid, one accent colour. Run the rules in `references/ANTI-SLOP.md` before posting: read every title alone; if it is a label ("现状与目标", "方案设计"), rewrite it as a claim. Then run the checkpoint in `references/REVIEW-CADENCE.md`: render the three slides, compose a 3-up grid, post it with a one-line summary and the local path, and continue. Ask a question only if a decision blocks the next batch. End the turn only if the user asked for interactive review.
+5. **Lint.** Run `python3 $S/deck_lint.py deck.pptx`, where `S` is this skill's `scripts/` directory. Fix hard failures and anything that pulls the score below 80. The layout checks (`layout.table`, `layout.list`, `layout.text-only`, `layout.labels`, `copy.prose-budget`) are the ones that catch a list or table dressed as a slide. Run it on the full deck before delivery; a partial deck can be linted at any checkpoint.
 6. **Visual pass.** Render every slide (LibreOffice, or Google Slides PDF for a Google deck) and look at the images. Check overflow, collisions, contrast, and whether the focal point is obvious in three seconds. Log fixes.
-7. **Ship.** Deliver the `.pptx`, a PDF render, and a short note on assumptions and open questions. Include the checkpoint images or a final contact sheet so the user can review without opening the file.
+7. **Ship.** Deliver the `.pptx`, a PDF render, and a short note on assumptions and open questions. Include the checkpoint images or a final contact sheet so the user can review without opening the file. Import to Google Slides **once, after the final lint and visual pass**: one request produces one Slides file, never one per batch.
+
+## Diagram-first
+
+Choose the structure before the sentences. The catalog in `references/DIAGRAM-PATTERNS.md` covers ten shapes and the copy budget for each:
+
+- **Boundary** — two responsibility banks and the one object that crosses the seam.
+- **Swimlane** — a request through layers, one judgement per node.
+- **Tree** — one allocation point, two execution sides, four objects.
+- **Staircase** — a process with stages that rise and a rail that anchors them.
+- **Trunk + glue** — two big buy blocks, one thin self-built connector, a side rail.
+- **Layer stack**, **2×2**, **stat row**, **payload + callouts**, **decision cards**.
+
+Three rules make the pattern read as a diagram instead of decoration:
+
+1. **Structure first.** Place nodes, edges, lanes, or axes before any text box.
+2. **Labels, not prose.** A node gets a name and at most one line; the explanation belongs in the title or the footnote.
+3. **One accent path.** The accent marks the main path, the exception, or the decision — not every node.
+
+The geometry primitives are in `scripts/diagram_kit.py`. Run `python3 scripts/diagram_kit.py --demo work/diagram-kit-demo.pptx` to see a boundary, a tree, and a staircase built with them, then copy the calls. Read it before hand-placing twenty shapes; it is shorter than the layout you would otherwise rebuild.
 
 ## Content rules
 
@@ -69,12 +91,15 @@ Details, banned patterns, and before/after rewrites: `references/ANTI-SLOP.md`.
 ## Design rules
 
 - **One direction.** Decide the typefaces, palette, and layout idiom once, from the brief or the brand, and apply them to every slide. Do not mix directions.
+- **Structure before style.** The first decision per slide is the structure; the type scale and colour come after it. A styled bullet list is still a bullet list.
 - **Canvas.** 16:9, 13.333 × 7.5 in. Margins 0.6 in top/bottom, 0.65 in sides. Twelve columns, 0.16 in gutters. Align everything to the grid.
+- **Brand templates at 10 × 5.625 in** (Google Slides/CI&T and similar) keep the same proportions and the template's 24/15/12/9 scale; scale margins by 0.75, not the body text below the template's floor.
 - **Type scale (pt).** Display 44–54 · H1 28–32 · H2 22–24 · H3 17–18 · body 14–16 · small 11–12 · caption 9–10 (source, footnote, page number only). Body never below 12. Two weights only; no faux bold.
-- **Density.** ≤ 5 bullets, ≤ 3 columns, ≤ 2 levels of nesting. If it does not fit at 12 pt, cut copy; do not go below 12.
+- **Density.** ≤ 7 nodes, ≤ 24 labels, ≤ 60 characters of prose. No bullet-list body; if it does not fit at 12 pt, cut copy; do not go below 12.
+- **Tables.** Appendix only. A content-table means the slide has no structure yet; rebuild it as a boundary, trunk + glue, or 2×2.
 - **Colour.** One ink, one paper, one accent, one tint, one muted grey. Accent ≤ 10% of the slide. Body contrast ≥ 4.5:1; large text ≥ 3:1.
 - **Hierarchy.** One focal element per slide: a number, a claim, a diagram, or a chart. Everything else is support and should be quieter.
-- **Space.** With a footer, the content band is 5.8 in from the top margin to the footer; after the title about 4.5 in remains for the body. Sum the heading, table rows, cards, and gaps before building; if the sum is over, split the slide. Fill 70–85% of the band. Formulas: `references/SPATIAL.md`.
+- **Space.** With a footer, the content band is 5.8 in from the top margin to the footer; after the title about 4.5 in remains for the body. Sum the heading, nodes, cards, and gaps before building; if the sum is over, split the slide. Fill 70–85% of the band. Formulas: `references/SPATIAL.md`.
 - **Heading stability.** On every content slide the title lands at the same height. Do not center a column that has a heading above its body; center only a statement or quote with no heading above it.
 - **Footer.** One 9–10 pt row at 6.4–7.5 in: page number plus one of source or brand. Nothing else in the band.
 - **Backgrounds.** Two tones at most: one light content ground and one dark opening/closing, plus one accent statement slide. Set the background explicitly on every slide.
@@ -110,13 +135,15 @@ python3 $S/deck_lint.py deck.pptx           # report, exit 1 on hard failures
 python3 $S/deck_lint.py deck.pptx --json    # machine-readable
 ```
 
-It checks banned phrasing, decorative section tags, type size (hard below 9 pt; a warning for 9–11 pt runs outside the footer), density, shape count, layout sameness, section-divider ratio, and contrast. It does not judge whether the argument is good; that is the storyboard review.
+It checks banned phrasing, decorative section tags, type size (hard below 9 pt; a warning for 9–11 pt runs outside the footer), density, shape count, layout sameness, and contrast. It also flags tables on content slides, sentence-length prose over the budget, and slides with no visual structure. It does not judge whether the argument is good; that is the storyboard review.
 
 Then look at every rendered slide. A clean lint with an unreadable slide is still a failure.
 
 ## Resources
 
 - `references/ANTI-SLOP.md` — patterns, rewrites, brand/meta rules, and a copy checklist.
+- `references/DIAGRAM-PATTERNS.md` — ten structures with geometry, copy budgets, ASCII sketches, and worked before/after transformations.
+- `scripts/diagram_kit.py` — brand-neutral python-pptx primitives for boxes, edges, branches, dots, staircases, chips, and the content frame.
 - `references/QUESTIONS.md` — when to ask, how to shape the options, and one worked example.
 - `references/SPATIAL.md` — vertical budget, heading stability, footer band, width, and image rules for PPTX.
 - `references/DESIGN-SYSTEM.md` — type scale, grid, layout archetypes, colour, chart rules.

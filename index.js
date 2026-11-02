@@ -55,7 +55,7 @@ Keep the local round-trip described above for .pptx edits: export → unpack →
 
 Before editing a Google Slides deck, export it again and work from that copy. The user may have changed the deck in Slides since your last export; importing a deck built from an older copy overwrites their edits.
 
-After each batch of 2–3 slides, publish a 3-up grid in the conversation with the local path (and the Google Slides link when one exists). Add a short summary and say what is next, then continue. Ask only if a decision blocks the next batch; pause only if the user asks for interactive review.
+After each batch of 2–3 slides, publish a 3-up grid in the conversation with the local path. Add a short summary and say what is next, then continue. Ask only if a decision blocks the next batch; pause only if the user asks for interactive review. Do not create a Google Slides file per batch: import once, after the final lint and visual pass, then share the link.
 
 Keep the deck's existing brand assets, including the template's footer logo. Do not add decorative section tags such as "01 · 今天" or redraw a logo; use the supplied file at the template's position and size.
 
@@ -209,8 +209,9 @@ function composeSlideTask(brief) {
     brief,
     '',
     '新 deck 用 deck-design 技能；修改已有 .pptx 用 pptx-deck-edit 技能。',
+    '内容组织优先用结构图，不要用项目符号堆句子：先选 references/DIAGRAM-PATTERNS.md 里的结构（boundary / swimlane / tree / staircase / trunk + glue 等），再写标签；每页正文按技能预算（≤ 60 字），标签要短。',
     '按技能里的流程推进：需求足够明确就直接开始，确有阻塞再问我；每完成三页渲染并给出 3-up 预览、文件路径和一句说明后继续，不要停下来等我逐批确认。',
-    '成品 .pptx 放在当前工作目录；交付前运行 deck_lint.py 并修掉硬失败。如果 Google Slides 已登录，再导入为 Google Slides 文件并把链接给我。',
+    '成品 .pptx 放在当前工作目录；交付前运行 deck_lint.py 并修掉硬失败。Google Slides 只在最终交付时导入一次，不要每批/每版导入；一次请求只留一个 Slides 文件。',
   ].join('\n');
 }
 
