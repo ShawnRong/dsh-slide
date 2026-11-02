@@ -421,6 +421,24 @@ def lint(path: Path):
             add(findings, "warn", "type.median",
                 f"Median run size is {stats['median_font']} pt; body should be 14–16 pt.")
             scores["design"] -= 10
+        small_body = [
+            (item.size, item.slide)
+            for slide in slides
+            for item in slide.texts
+            if item.size is not None
+            and 9 <= item.size < 11
+            and item.top < height - 1.15
+            and units(item.text) >= 8
+        ]
+        stats["small_body_runs"] = len(small_body)
+        if small_body:
+            examples = ", ".join(f"slide {n} ({s:g} pt)" for s, n in small_body[:6])
+            add(findings, "warn", "type.body-floor",
+                f"{len(small_body)} run(s) between 9 and 11 pt outside the footer band. "
+                "Body floor is 12 pt and small text is 11–12 pt; 9–10 pt is only for source, footnote, and page number. "
+                f"Cut copy or split the slide. {examples}",
+                [n for _, n in small_body])
+            scores["design"] -= 6
     else:
         add(findings, "warn", "type.inherited",
             "No explicit font sizes found. The linter cannot verify readability; set sizes in the file.")

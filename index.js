@@ -13,6 +13,8 @@ import { lstat, mkdir, readFile, realpath, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { createDeckStore } from './decks.js';
+
 const ROUTE = '/dsh-slide';
 const ACCOUNT_KEY = 'dsh-slide/google-account';
 const CLIENT_KEY = 'dsh-slide/google-client';
@@ -51,9 +53,11 @@ Sign-in is user-only in **Settings → Google Slides**. The tool refreshes OAuth
 
 Keep the local round-trip described above for .pptx edits: export → unpack → plan → edit in batches → render and inspect → pack → import.
 
+Before editing a Google Slides deck, export it again and work from that copy. The user may have changed the deck in Slides since your last export; importing a deck built from an older copy overwrites their edits.
+
 After each batch of 2–3 slides, publish a 3-up grid in the conversation with the local path (and the Google Slides link when one exists). Add a short summary and say what is next, then continue. Ask only if a decision blocks the next batch; pause only if the user asks for interactive review.
 
-Keep the deck's existing brand assets. Do not add decorative section tags such as "01 · 今天" or redraw a logo; use the supplied file or leave the mark out.
+Keep the deck's existing brand assets, including the template's footer logo. Do not add decorative section tags such as "01 · 今天" or redraw a logo; use the supplied file at the template's position and size.
 
 For a new deck or a full redesign, load the \`deck-design\` skill first. It carries the copy standard and the layout system; run its \`scripts/deck_lint.py\` before delivering.
 `;
@@ -73,18 +77,20 @@ let tokenRefresh;
 const MAX_JSON_BYTES = 32 * 1024;
 const MAX_UPLOAD_BYTES = 50 * 1024 * 1024;
 
-export const inject = ['webServer', 'credentials', 'skills', 'tools', 'workingDirectory'];
+export const inject = ['webServer', 'credentials', 'skills', 'tools', 'workingDirectory', 'commands'];
 
 export function apply(ctx) {
   /** state -> { verifier, redirectUri, clientId, clientSecret, createdAt } */
   const pending = new Map();
+  const deckStore = createDeckStore();
 
   registerSkills(ctx);
-  registerTool(ctx);
-  registerRoutes(ctx, pending);
+  registerTool(ctx, deckStore);
+  registerCommand(ctx);
+  registerRoutes(ctx, pending, deckStore);
 
   ctx.effect(() => () => pending.clear(), 'dsh-slide: clear pending OAuth states');
-  ctx.logger.info('[dsh-slide] deck-design + pptx-deck-edit skills, Google sign-in, and google_slides tool loaded');
+  ctx.logger.info('[dsh-slide] deck-design + pptx-deck-edit skills, /slide command, Google sign-in, and google_slides tool loaded');
 }
 
 /* ----------------------------------------------------------------------------
@@ -154,17 +160,72 @@ function parseFrontmatter(raw) {
 }
 
 /* ----------------------------------------------------------------------------
+ * Slash command
+ * ------------------------------------------------------------------------- */
+
+const SLIDE_USAGE = '用法：/slide <主题或要求>，例如 /slide 给管理层做一份 10 页的 Q4 复盘。';
+
+function registerCommand(ctx) {
+  ctx.effect(() => ctx.commands.register({
+    name: 'slide',
+    description: 'Start a deck-building task with the deck-design skill',
+    input: { hint: '<主题或要求>' },
+    handler: startDeckTask,
+  }), 'dsh-slide: register slide command');
+}
+
+/**
+ * Hand the brief to the live agent as an ordinary user message, so the task
+ * runs through the same inbox and session log as a typed prompt.
+ */
+function startDeckTask(invocation) {
+  const brief = invocation.rawInput.trim();
+  if (brief.length === 0) return { kind: 'error', text: SLIDE_USAGE };
+  const agent = invocation.agent;
+  if (typeof agent.followup !== 'function') {
+    return { kind: 'error', text: '当前会话不支持继续发送消息，无法启动做 deck 的任务。' };
+  }
+  agent.followup(createUserTextMessage(composeSlideTask(brief)));
+  return {
+    kind: 'success',
+    text: '已交给 deck-design 开始制作，接下来会在对话里按三页一批推进并贴出预览。',
+  };
+}
+
+/** One identified user-role text message, the same shape the llm factories produce. */
+function createUserTextMessage(text) {
+  return {
+    id: randomUUID(),
+    role: 'user',
+    content: [{ type: 'text', text }],
+    source: { kind: 'user' },
+  };
+}
+
+function composeSlideTask(brief) {
+  return [
+    '用 DSH 的演示文稿技能完成这个任务：',
+    '',
+    brief,
+    '',
+    '新 deck 用 deck-design 技能；修改已有 .pptx 用 pptx-deck-edit 技能。',
+    '按技能里的流程推进：需求足够明确就直接开始，确有阻塞再问我；每完成三页渲染并给出 3-up 预览、文件路径和一句说明后继续，不要停下来等我逐批确认。',
+    '成品 .pptx 放在当前工作目录；交付前运行 deck_lint.py 并修掉硬失败。如果 Google Slides 已登录，再导入为 Google Slides 文件并把链接给我。',
+  ].join('\n');
+}
+
+/* ----------------------------------------------------------------------------
  * Tool
  * ------------------------------------------------------------------------- */
 
-function registerTool(ctx) {
+function registerTool(ctx, deckStore) {
   ctx.effect(() => ctx.tools.register({
     name: 'google_slides',
     description:
       'Google Slides bridge for the pptx-deck-edit skill. action=status checks the Google connection; '
       + 'list finds Google Slides decks; export downloads a deck as .pptx into the workspace; '
       + 'import uploads a local .pptx as a NEW Google Slides file; pdf downloads Google\'s own PDF rendering. '
-      + 'The user signs in through Settings → Google Slides. Never ask for, print, or handle OAuth tokens.',
+      + 'The user signs in through Settings → Google Slides. The Decks panel lists every deck the agent imported, exported, or opened. Never ask for, print, or handle OAuth tokens.',
     parameters: {
       type: 'object',
       properties: {
@@ -215,11 +276,11 @@ function registerTool(ctx) {
         case 'list':
           return { ok: true, files: await listFiles(ctx, args.query, args.limit) };
         case 'export':
-          return await exportFile(ctx, args.file_id, PPTX_MIME, args.path, '.pptx', exec);
+          return await exportFile(ctx, args.file_id, PPTX_MIME, args.path, '.pptx', exec, deckStore);
         case 'pdf':
-          return await exportFile(ctx, args.file_id, PDF_MIME, args.path, '.pdf', exec);
+          return await exportFile(ctx, args.file_id, PDF_MIME, args.path, '.pdf', exec, deckStore);
         case 'import':
-          return await importFile(ctx, args.path, args.name, args.parent_id, exec);
+          return await importFile(ctx, args.path, args.name, args.parent_id, exec, deckStore);
         default:
           throw new Error(`Unknown action "${String(args.action)}". Use status, list, export, import, or pdf.`);
       }
@@ -235,7 +296,7 @@ function renderToolValue(value) {
     return files.map((file) => `- ${file.name} — ${file.id}${file.webViewLink ? ` (${file.webViewLink})` : ''}`).join('\n');
   }
   if (value.path) {
-    return `Wrote ${value.path} (${value.bytes} bytes).`;
+    return `Wrote ${value.path} (${value.bytes} bytes).${value.webViewLink ? `\nDeck: ${value.webViewLink}` : ''}`;
   }
   if (value.id) {
     return `Created Google Slides file "${value.name}" (${value.id})${value.webViewLink ? ` — ${value.webViewLink}` : ''}.`;
@@ -546,20 +607,70 @@ async function listFiles(ctx, query, limit) {
   return Array.isArray(data.files) ? data.files : [];
 }
 
-async function exportFile(ctx, fileId, mimeType, requestedPath, extension, exec) {
+async function exportFile(ctx, fileId, mimeType, requestedPath, extension, exec, deckStore) {
   const id = String(fileId || '').trim();
   if (!id) throw new Error('file_id is required for export/pdf.');
   const target = await resolveWorkspacePath(ctx, exec, requestedPath, `google-slides-${safeFileId(id)}${extension}`);
+  const metaPromise = fetchDeckMeta(ctx, id);
   const url = new URL(`${DRIVE_URL}/files/${encodeURIComponent(id)}/export`);
   url.searchParams.set('mimeType', mimeType);
   const response = await authorizedFetch(ctx, url);
   if (!response.ok) throw await googleError(response);
   const bytes = Buffer.from(await response.arrayBuffer());
   await writeFile(target, bytes);
-  return { ok: true, fileId: id, path: target, bytes: bytes.length, mimeType };
+  const meta = await metaPromise;
+  await rememberDeck(ctx, deckStore, exec, {
+    fileId: id,
+    name: meta.name || `Slides ${safeFileId(id)}`,
+    webViewLink: meta.webViewLink,
+    mimeType: meta.mimeType || SLIDES_MIME,
+    source: extension === '.pdf' ? 'pdf' : 'export',
+    localPath: target,
+  });
+  return {
+    ok: true,
+    fileId: id,
+    name: meta.name,
+    webViewLink: meta.webViewLink,
+    path: target,
+    bytes: bytes.length,
+    mimeType,
+  };
 }
 
-async function importFile(ctx, inputPath, name, parentId, exec) {
+async function fetchDeckMeta(ctx, fileId) {
+  try {
+    const url = new URL(`${DRIVE_URL}/files/${encodeURIComponent(fileId)}`);
+    url.searchParams.set('fields', 'id,name,mimeType,webViewLink,modifiedTime');
+    const response = await authorizedFetch(ctx, url);
+    if (!response.ok) return {};
+    const data = await response.json();
+    return data && typeof data === 'object' ? data : {};
+  } catch {
+    return {};
+  }
+}
+
+async function rememberDeck(ctx, deckStore, exec, deck) {
+  try {
+    let workspace = '';
+    if (exec?.agent) {
+      workspace = await ctx.workingDirectory.ensure(exec.agent, exec.signal);
+    } else {
+      workspace = ctx.workingDirectory?.defaultDirectory || '';
+    }
+    return await deckStore.remember({
+      ...deck,
+      sessionId: exec?.agent?.id || '',
+      workspace,
+    });
+  } catch (error) {
+    ctx.logger.warn(`[dsh-slide] could not remember deck ${deck?.fileId || '?'}: ${errorMessage(error)}`);
+    return undefined;
+  }
+}
+
+async function importFile(ctx, inputPath, name, parentId, exec, deckStore) {
   if (!inputPath) throw new Error('path is required for import.');
   const source = await resolveWorkspacePath(ctx, exec, inputPath, undefined, { mustExist: true });
   const info = await lstat(source);
@@ -589,6 +700,14 @@ async function importFile(ctx, inputPath, name, parentId, exec) {
   );
   if (!response.ok) throw await googleError(response);
   const data = await response.json();
+  await rememberDeck(ctx, deckStore, exec, {
+    fileId: data.id,
+    name: data.name,
+    webViewLink: data.webViewLink,
+    mimeType: SLIDES_MIME,
+    source: 'import',
+    localPath: source,
+  });
   return { ok: true, id: data.id, name: data.name, webViewLink: data.webViewLink };
 }
 
@@ -635,7 +754,7 @@ function isInside(root, candidate) {
  * HTTP routes
  * ------------------------------------------------------------------------- */
 
-function registerRoutes(ctx, pending) {
+function registerRoutes(ctx, pending, deckStore) {
   const route = (path, handler) => ctx.effect(
     () => ctx.webServer.register({ kind: 'exact', path, handler }),
     `dsh-slide: route ${path}`,
@@ -704,6 +823,31 @@ function registerRoutes(ctx, pending) {
       ok: true,
       files: await listFiles(ctx, url.searchParams.get('q'), url.searchParams.get('limit')),
     });
+  }));
+
+  route(`${ROUTE}/api/decks`, api(async (req, res) => {
+    requireMethod(req, 'GET');
+    sendJson(res, 200, { ok: true, decks: await deckStore.list() });
+  }));
+
+  route(`${ROUTE}/api/decks/open`, api(async (req, res) => {
+    requireMethod(req, 'POST');
+    assertSameOrigin(ctx, req);
+    const body = await readJson(req);
+    const fileId = String(body.fileId || '').trim();
+    if (!fileId) throw httpError(400, 'fileId is required.', 'missing_file_id');
+    const deck = await deckStore.touch(fileId);
+    if (!deck) throw httpError(404, 'That deck is no longer in the list.', 'deck_missing');
+    sendJson(res, 200, { ok: true, deck });
+  }));
+
+  route(`${ROUTE}/api/decks/forget`, api(async (req, res) => {
+    requireMethod(req, 'POST');
+    assertSameOrigin(ctx, req);
+    const body = await readJson(req);
+    const fileId = String(body.fileId || '').trim();
+    if (!fileId) throw httpError(400, 'fileId is required.', 'missing_file_id');
+    sendJson(res, 200, { ok: true, removed: await deckStore.forget(fileId) });
   }));
 }
 

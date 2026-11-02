@@ -1,6 +1,6 @@
 {
   "meta": {
     "title": "Google Slides 演示文稿",
-    "description": "内置 deck-design 与 pptx-deck-edit 技能，支持从零搭建或改版演示文稿，并在 Google Slides 与本地 .pptx 文件之间导入导出。"
+    "description": "内置 deck-design 与 pptx-deck-edit 技能，支持从零搭建或改版演示文稿，在 Google Slides 与本地 .pptx 之间导入导出，并在「幻灯片」面板里重新打开最近用过的演示文稿。"
   }
 }

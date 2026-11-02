@@ -83,6 +83,12 @@ Saved UI values take priority over environment values. The UI reports when it is
 
 Both skills are registered from their bundled directories, with a short DSH-specific note appended at load time. The upstream `pptx-deck-edit` files are not modified; `deck-design` is part of this bundle.
 
+### `/slide` command
+
+Type `/slide <主题或要求>` in the composer to start a deck task without writing the prompt by hand. The command turns the brief into an ordinary user message and queues it with the live agent, so the work runs through the same inbox, session log, and turn lifecycle as a typed prompt.
+
+The composed message tells the agent to use `deck-design` for a new deck (or `pptx-deck-edit` when editing an existing `.pptx`), follow the skill's three-slide cadence, keep the finished `.pptx` in the working directory, run `deck_lint.py` before delivery, and import to Google Slides when an account is connected. `/slide` with no brief returns a usage error.
+
 The `google_slides` tool supports:
 
 | action | purpose |
@@ -105,6 +111,16 @@ google_slides pdf file_id=<new-id> path=work/deck/final-google.pdf
 
 `export`, `pdf`, and `import` only accept paths inside the current session workspace. Symlink escapes are rejected.
 
+## Decks panel
+
+The left sidebar gains **Decks** (中文界面「幻灯片」). It lists every deck `google_slides` imported, exported, or rendered, newest first. Click a card to return to the conversation that worked on it and open the deck in the right sidebar's browser, next to the chat. **Google Slides** opens the same deck in a new tab, and the trash button removes only the local record.
+
+A record holds the Drive file id, title, link, the session that touched it, the workspace path, the last local file, and timestamps. It never holds a token. Records live in `$DSH_HOME/dsh-slide/decks/<hash>.json` (default `~/.dsh/dsh-slide/decks/`), survive restarts, and are pruned to the 200 most recent.
+
+The panel reads on open, when the window becomes visible again, and every 15 seconds. It does not call Google: when the record's conversation was archived or deleted, or the right sidebar is unavailable, the deck opens in a normal browser window instead.
+
+Two limits are deliberate for this version: previews are drawn locally (Drive thumbnails need an extra proxy), and the panel has no comments yet.
+
 ## Deck quality gate
 
 `deck-design` adds a build workflow and an automated gate for the failure mode in most agent decks: dense pages, 6–8 pt type, the same four-card layout on every slide, and copy that sounds like a model.
@@ -117,13 +133,15 @@ python3 deck-design/scripts/deck_lint.py deck.pptx --json
 It reports a content and design score and hard failures for:
 
 - AI tells such as “不是…而是…”, “一页看懂”, “诚实标注”, meta citations, and invented section tags such as `01 · 今天`;
-- type below 9 pt, body copy over the density budget, and more than ~14 shapes per slide;
+- type below 9 pt (a hard failure), 9–11 pt runs outside the footer (a warning), body copy over the density budget, and more than ~14 shapes per slide;
 - fewer than four distinct body compositions in a deck of ten or more slides;
 - low-contrast text and text outside the canvas.
 
-The two proposal decks used during review score 33/100 and 36/100; the human-written comparison scores 78/100. The score is a tripwire, not a grade — the visual pass still decides.
+During review, the two agent-built proposals scored in the low 30s and the human-written comparison in the high 70s. The score is a tripwire, not a grade — the visual pass still decides.
 
-`deck-design/references/ANTI-SLOP.md` lists the patterns and rewrites; `deck-design/references/DESIGN-SYSTEM.md` gives the type scale, grid, density budget, and eight layout archetypes.
+`deck-design/references/ANTI-SLOP.md` lists the patterns and rewrites; `DESIGN-SYSTEM.md` gives the type scale, grid, density budget, and eight layout archetypes; `SPATIAL.md` gives the PPTX vertical budget and heading/footer rules; `QUESTIONS.md` gives the ask-before-building protocol.
+
+A template asset is not slop: a footer logo supplied by the template stays at its position and size, with the light/dark variant the template specifies. Take that size from the template master, not from a brand-guide display slide. If the tagline is unreadable at the footer size, use the template's compact mark instead of enlarging the lockup. The rules only forbid inventing, moving, recolouring, or redrawing a mark.
 
 ## Review cadence
 
@@ -135,13 +153,14 @@ The message template, question patterns, and feedback rules are in `deck-design/
 
 | File | Role |
 |---|---|
-| `index.js` | Host plugin: skill registration, OAuth loopback flow, credential records, Drive API, `google_slides` tool, HTTP routes. |
-| `client.js` | Client plugin: `settings.section` page, localized en/zh dictionaries, sign-in popup and status polling. |
+| `index.js` | Host plugin: skill registration, the `/slide` command, OAuth loopback flow, credential records, Drive API, `google_slides` tool, HTTP routes. |
+| `decks.js` | Host: durable deck list, atomic JSON records, and the 200-record prune. |
+| `client.js` | Client plugin: `settings.section` page, **Decks** panel (`main` + `sidebar.panellist`), localized en/zh dictionaries, sign-in popup and status polling. |
 | `cordis.patch.yml` | Inserts the Host row. |
 | `locale/{en,zh}.json` | Plugin Manager title and description. |
 | `icon.svg` | Original deck/slide icon. |
 | `pptx-deck-edit/` | The upstream edit skill (unchanged), exposed with a runtime note. |
-| `deck-design/` | The build/rebuild skill: copy standard, design system, 3-slide progress grid (`checkpoint.py`), and `deck_lint.py`. |
+| `deck-design/` | The build/rebuild skill: copy standard, design system, space math, question protocol, 3-slide progress grid (`checkpoint.py`), and `deck_lint.py`. |
 
 Credential records:
 
@@ -156,6 +175,9 @@ Routes:
 - `POST /dsh-slide/api/google/disconnect`
 - `GET  /dsh-slide/oauth/google/callback`
 - `GET  /dsh-slide/api/drive/files`
+- `GET  /dsh-slide/api/decks`
+- `POST /dsh-slide/api/decks/open`
+- `POST /dsh-slide/api/decks/forget`
 
 ## Security notes
 
@@ -164,13 +186,19 @@ Routes:
 - Signing out deletes the credential record and best-effort revokes the Google grant.
 - OAuth client changes and disconnects require a same-origin request: the bound Web origin, a loopback alias, or the desktop shell's `dsh-app://app` origin.
 - Client secret and tokens live in the Host credential store, not in `cordis.patch.yml`.
+- Deck records (`~/.dsh/dsh-slide/decks/`) hold titles, Drive file ids, session ids, workspace paths, and last export paths. They never hold a token.
 - The Google Drive export endpoint enforces Google's own 10 MB presentation export limit.
 
 ## Verification
 
 - Host and Client JavaScript pass `node --check`.
+- A stub-Context test of `index.js` registers `/slide` with the `<主题或要求>` hint; its handler queues exactly one user-role message carrying the brief, and an empty brief returns the usage error.
+- The bundle deactivates and reactivates with `application: applied`; the Host command service is present, so registration runs in the live profile.
 - `deck-design` registers alongside `pptx-deck-edit`; its lint runs against a real 22-slide deck and a 28-slide comparison deck.
 - `checkpoint.py` composes a labelled 3-up grid from rendered PNGs (2400×608 for three 16:9 slides).
+- `npm run smoke` (`scripts/smoke-decks.mjs`) passes: `decks.js` list order, touch, forget, invalid ids, hostile fields, 20 concurrent writers, and the 200-record prune.
+- The three deck routes pass in the same stub Host: list, open (updates `openedAt`), 404 for an unknown deck, 403 for a foreign origin, and forget.
+- Live slot inspection shows `dsh-slide.decks` active in both `main` and `sidebar.panellist`. The Host half (the three deck routes) and the panel's visual state still need a check after the app restarts; visual verification is unavailable from this session.
 - `deck_lint.py` flags decorative tags such as `01 · 今天` as `copy.eyebrow-tag`, separately from hard copy failures.
 - Verified live on DSH 0.2.1-rc.3: Host boot, credential read/write/delete, `google_slides` schema, `pptx-deck-edit` catalog entry, Settings section, and a Drive `list` against a connected account.
 - The bundle installed with `application: applied` and no warnings.
@@ -182,6 +210,8 @@ Routes:
 - The Settings page renders in Chinese/English and light/dark themes (screenshots in `screenshots/`).
 
 Not verified without user credentials: an actual Google consent round-trip and a live Drive export/import. Those need a real OAuth client ID/secret and a Google account.
+
+The composer's `/` menu entry and a real `/slide` task turn were not exercised from this session: the standalone Web page requires the process launch token, and invoking the command would start a new deck turn. The registration path and the queued message shape are covered by the stub-Context test above.
 
 ## Limitations
 

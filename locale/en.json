@@ -1,6 +1,6 @@
 {
   "meta": {
     "title": "Google Slides Deck Studio",
-    "description": "Build, redesign, or edit decks with the bundled deck-design and pptx-deck-edit skills, sign in with Google, and move decks between Google Slides and local .pptx files."
+    "description": "Build, redesign, or edit decks with the bundled deck-design and pptx-deck-edit skills, sign in with Google, move decks between Google Slides and local .pptx files, and reopen recent decks from the Decks panel."
   }
 }

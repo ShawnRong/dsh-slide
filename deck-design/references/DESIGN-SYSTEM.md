@@ -1,11 +1,13 @@
 # Deck design system
 
-A small system beats a large template. These are the defaults; a supplied brand template overrides colour and typefaces, not the density or hierarchy rules.
+A small system beats a large template. These are the defaults. A supplied brand guide or template overrides colour, typefaces, type scale, and the footer logo; use its values and keep the density and hierarchy rules.
 
 ## Canvas and grid
 
 - 16:9, 13.333 × 7.5 in (13.333 in = 33.87 cm).
 - Margins: 0.6 in top/bottom, 0.65 in left/right. Keep a 1.1 in bottom band for source, page number, and logo.
+- Content band: 0.6–6.4 in = 5.8 in with a footer; 6.3 in without. The title and body together fill 70–85% of it.
+- Space math — vertical budget, heading stability, footer band, width and image rules: `SPATIAL.md`.
 - 12 columns, 0.16 in gutters. Column width = 0.94 in.
 - One alignment axis per slide. Left-aligned titles and body; centre only for a single statement or a quote.
 - Vertical rhythm in 0.12 in increments. Do not eyeball spacing.
@@ -20,13 +22,14 @@ A small system beats a large template. These are the defaults; a supplied brand 
 | H3 | 17–18 | Semibold | 1.25 | Card heading |
 | Body | 14–16 | Regular | 1.35–1.45 | Chinese; 1.2–1.3 Latin |
 | Small | 11–12 | Regular | 1.3 | Labels, axis, table cells |
-| Caption | 9–10 | Regular | 1.25 | Source, footnote; never below 9 |
+| Caption | 9–10 | Regular | 1.25 | Source, footnote, page number; never below 9 |
 
 Rules:
 
+- If the brand guide gives a scale, use it verbatim. A 24/18/15/12/9 scale (title/subtitle/highlight/body/caption) is a common corporate variant; do not inflate it to the default 14–16 body.
 - Two weights only. Use size and colour for hierarchy before adding a third weight.
 - Chinese and Latin in the same run: set the East Asian font explicitly; do not let the renderer substitute.
-- Never shrink body below 14 pt to make copy fit. Cut copy.
+- Never set body below 12 pt; 14–16 pt is the default. 9–10 pt is only for source, footnote, and page number. If copy does not fit at 12, cut or split.
 - Title case is not a hierarchy tool. Use sentence case consistently.
 - Numbers in a stat block: 40–72 pt, one decimal unit at 12–14 pt below, description at 11–12 pt.
 
@@ -101,15 +104,21 @@ Only when the deck changes subject. The line is a question or a claim, not "01. 
 ## Colour
 
 - Roles: ink (titles/body), paper (background), accent (one per deck), tint (accent at 8–12%), muted (secondary text).
+- Use toned whites and blacks, not pure `#FFFFFF`/`#000000`; one dark, one light, plus 1–2 accents.
 - Accent area ≤ 10% of any slide. If everything is accent, nothing is.
 - Body contrast ≥ 4.5:1; large text ≥ 3:1. Check the actual pair, not the brand swatch.
+- When two colors must be told apart, differ them in lightness as well as hue; blue/orange is safer than red/green.
 - No gradients, no drop shadows, no glass effects. Flat fills and one hairline weight.
+- No emoji as icons or decoration. Do not use a rounded card with a left accent bar as a default container.
 - A dark slide is a deliberate break, not a section default. Use it once or twice per deck.
+- Two background tones at most: the light content ground and one dark opening/closing, plus one accent statement slide.
 
 ## Brand marks and section labels
 
-- **Logo:** use the supplied asset only. Do not redraw, trace, or generate a logo, even if the result looks close. Keep the native aspect ratio; one position and one size across the deck.
-- **Placement:** cover and close, or the template's fixed footer. Content pages only if the template requires it. Do not improvise a bottom-right logo to fill space.
+- **Footer logo:** if the template has one, keep it. That is a template element, not slop. Use the supplied asset at the template's exact position and size, with the light/dark variant the template specifies. Do not remove it or move it.
+- **Size:** take the footer logo size and position from the template's master, not from a brand-guide display slide. A guide shows the lockup large; the footer is usually much smaller. If the tagline is unreadable at the template's footer size, use the template's compact mark; do not enlarge the lockup to make the tagline fit.
+- **No new marks:** do not redraw, trace, recolour, or generate a logo, even if the result looks close. Do not add a logo where the template has none, and do not add a second mark.
+- **No asset:** ask for the file. Do not recreate the mark.
 - **Section label:** optional. If the deck has an agenda with named sections, the label uses the exact same name and number. If the agenda has no sections, the label goes.
 - **No decorative metadata:** `01 · 今天` is not a section unless the agenda says "01 今天". A tag that repeats the title or the column header is noise.
 - **Footer:** page number plus one of source or brand. Three competing footer elements is one too many.
@@ -126,6 +135,7 @@ Only when the deck changes subject. The line is a question or a claim, not "01. 
 ## Images
 
 - One image per slide at most, and only if it carries meaning (product, place, person, artifact).
+- Photos crop to fill the frame; screenshots and diagrams fit inside it on a contrasting fill. Keep labels as text outside the image.
 - Full-bleed images need a contrast scrim for text; do not put 12 pt text on a busy photo.
 - No generic handshake, skyline, or robot imagery. An empty diagram is better than a stock photo.
 
@@ -137,8 +147,9 @@ Decks are read, not performed. If animation is required, use one build per slide
 
 - Squint test: the focal point is obvious in three seconds.
 - Title-only read: the argument survives.
-- 14 pt test: every body line is readable at 100% zoom on a laptop.
+- 12 pt test: every body line is readable at 100% zoom on a laptop.
 - Collision test: no text touches a rule, card edge, or another text box.
 - Contrast test: every text/background pair passes 4.5:1 (or 3:1 for ≥ 24 pt).
 - Rhythm test: no three consecutive slides with the same composition.
 - Footer test: source, page number, and brand do not compete with the content.
+- Heading test: titles land at the same height on neighbouring content slides.

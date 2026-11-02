@@ -107,10 +107,11 @@ Rules:
 
 A logo is a supplied asset, not a design element. If the logo in the file was drawn by the model, it is a hallucination even when it looks close.
 
-- Use the supplied SVG or PNG at its native aspect ratio and colour. Never trace, recreate, or approximate a logo.
-- One position, one size. Cover and close, or the template's fixed footer. Do not improvise a new corner.
-- Do not put a logo on every content page just to fill the corner. A page number and a logo in opposite corners is often one element too many.
-- If no asset is supplied, use the company name in the body font. An empty corner is better than a fake mark.
+- A footer logo required by the template is not slop. Keep it at the template's exact position, size, and light/dark variant. Do not remove it, move it, or redraw it.
+- Use the supplied SVG or PNG at its native aspect ratio and colour. Never trace, recreate, recolour, or approximate a logo.
+- Do not add a logo where the template has none, and do not add a second mark. A required footer is one element, not decoration.
+- Do not scale a brand-guide display lockup into a footer. Use the template's footer size; if the tagline is unreadable, use the compact mark, not a bigger lockup. A footer logo shrunk until its tagline is noise is slop, and so is a footer logo enlarged until it competes with the page.
+- If the template requires a logo and no asset is supplied, ask for the asset. Do not recreate it. If the template has no mark, omit it.
 
 ## Banned list
 

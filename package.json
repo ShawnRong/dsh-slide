@@ -1,11 +1,12 @@
 {
   "name": "@local/dsh-slide",
-  "version": "0.1.1",
+  "version": "0.2.1",
   "private": true,
   "type": "module",
-  "description": "Google Slides deck studio for DSH: bundled deck-design and pptx-deck-edit skills, Google sign-in, and a google_slides tool.",
+  "description": "Google Slides deck studio for DSH: bundled deck-design and pptx-deck-edit skills, Google sign-in, a google_slides tool, and a Decks panel for decks the agent touched.",
   "scripts": {
-    "migrate-credentials": "node scripts/migrate-credentials.mjs"
+    "migrate-credentials": "node scripts/migrate-credentials.mjs",
+    "smoke": "node scripts/smoke-decks.mjs"
   },
   "exports": {
     ".": "./index.js",
@@ -15,6 +16,7 @@
   },
   "files": [
     "index.js",
+    "decks.js",
     "client.js",
     "cordis.patch.yml",
     "locale/*.json",
