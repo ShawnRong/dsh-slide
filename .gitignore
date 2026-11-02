@@ -1,0 +1,23 @@
+# Local scratch workspace — `google_slides` writes exported decks / renders here.
+# Contains ~350 MB of throwaway PNG/PDF renders, unpacked OOXML and .mc caches.
+work/
+
+# One-off browser-automation scripts and their screenshots.
+ego/
+
+# Ad-hoc test deck used for permission checks; not part of the bundle.
+access-check.pptx
+
+# Toolchain & Python caches
+__pycache__/
+*.py[cod]
+.mc/
+
+# macOS / editors
+.DS_Store
+.vscode/
+.idea/
+
+# Logs
+*.log
+npm-debug.log*

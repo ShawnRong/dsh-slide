@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Slide deck">
+  <defs>
+    <linearGradient id="bg" x1="8" y1="6" x2="56" y2="58" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#2F6FE4"/>
+      <stop offset="1" stop-color="#173C8C"/>
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="15" fill="url(#bg)"/>
+  <rect x="14" y="19" width="33" height="24" rx="4" fill="#0E2B65" opacity=".45"/>
+  <rect x="18" y="15" width="33" height="24" rx="4" fill="#F7FAFF"/>
+  <rect x="24" y="21" width="16" height="2.6" rx="1.3" fill="#2F6FE4"/>
+  <rect x="24" y="27" width="21" height="2.2" rx="1.1" fill="#AFC4E8"/>
+  <rect x="24" y="32" width="12" height="2.2" rx="1.1" fill="#AFC4E8"/>
+  <circle cx="46" cy="45" r="9" fill="#FFB547"/>
+  <path d="M43.5 41.2v7.6l6.4-3.8-6.4-3.8Z" fill="#173C8C"/>
+</svg>
