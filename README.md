@@ -1,8 +1,8 @@
 # Google Slides Deck Studio for DSH
 
-A DSH extension built around the [`pptx-deck-edit`](pptx-deck-edit/SKILL.md) skill. It adds:
+A DSH extension for building and editing slide decks. It adds:
 
-- the bundled **`pptx-deck-edit`** skill to the agent catalog;
+- two bundled skills — **`deck-design`** for building or rebuilding a deck with a content and layout standard, and **`pptx-deck-edit`** for edits that preserve an existing one;
 - a **Google account login** flow in **Settings → Google Slides**;
 - a **`google_slides`** agent tool for listing, exporting, importing, and PDF-rendering Google Slides decks.
 
@@ -81,7 +81,7 @@ Saved UI values take priority over environment values. The UI reports when it is
 
 ## Agent usage
 
-The skill is registered from the bundled `pptx-deck-edit` directory, with a short DSH-specific note appended at load time. The original skill files are not modified.
+Both skills are registered from their bundled directories, with a short DSH-specific note appended at load time. The upstream `pptx-deck-edit` files are not modified; `deck-design` is part of this bundle.
 
 The `google_slides` tool supports:
 
@@ -97,12 +97,39 @@ Example agent flow:
 
 ```text
 google_slides export file_id=<deck-id> path=work/deck/original.pptx
-# edit with pptx-deck-edit
+# edit with pptx-deck-edit, or build with deck-design
+python3 deck-design/scripts/deck_lint.py work/deck/final.pptx
 google_slides import path=work/deck/final.pptx name="Q4 review (edited)"
 google_slides pdf file_id=<new-id> path=work/deck/final-google.pdf
 ```
 
 `export`, `pdf`, and `import` only accept paths inside the current session workspace. Symlink escapes are rejected.
+
+## Deck quality gate
+
+`deck-design` adds a build workflow and an automated gate for the failure mode in most agent decks: dense pages, 6–8 pt type, the same four-card layout on every slide, and copy that sounds like a model.
+
+```text
+python3 deck-design/scripts/deck_lint.py deck.pptx
+python3 deck-design/scripts/deck_lint.py deck.pptx --json
+```
+
+It reports a content and design score and hard failures for:
+
+- AI tells such as “不是…而是…”, “一页看懂”, “诚实标注”, meta citations, and invented section tags such as `01 · 今天`;
+- type below 9 pt, body copy over the density budget, and more than ~14 shapes per slide;
+- fewer than four distinct body compositions in a deck of ten or more slides;
+- low-contrast text and text outside the canvas.
+
+The two proposal decks used during review score 33/100 and 36/100; the human-written comparison scores 78/100. The score is a tripwire, not a grade — the visual pass still decides.
+
+`deck-design/references/ANTI-SLOP.md` lists the patterns and rewrites; `deck-design/references/DESIGN-SYSTEM.md` gives the type scale, grid, density budget, and eight layout archetypes.
+
+## Review cadence
+
+`deck-design` builds in batches of three. After each batch the agent renders the three slides, composes a labelled 3-up grid, and posts it with a one-line summary, the local `.pptx` path, and the Google Slides link when it exists. It keeps building by default; it pauses only when the user asks for interactive review or a decision blocks the next batch.
+
+The message template, question patterns, and feedback rules are in `deck-design/references/REVIEW-CADENCE.md`; `deck-design/scripts/checkpoint.py` composes the grid. If the client cannot render inline images, the agent calls `present` with the grid so the user gets a preview card.
 
 ## How it is put together
 
@@ -113,7 +140,8 @@ google_slides pdf file_id=<new-id> path=work/deck/final-google.pdf
 | `cordis.patch.yml` | Inserts the Host row. |
 | `locale/{en,zh}.json` | Plugin Manager title and description. |
 | `icon.svg` | Original deck/slide icon. |
-| `pptx-deck-edit/` | The upstream skill (unchanged), exposed with a runtime note. |
+| `pptx-deck-edit/` | The upstream edit skill (unchanged), exposed with a runtime note. |
+| `deck-design/` | The build/rebuild skill: copy standard, design system, 3-slide progress grid (`checkpoint.py`), and `deck_lint.py`. |
 
 Credential records:
 
@@ -141,6 +169,9 @@ Routes:
 ## Verification
 
 - Host and Client JavaScript pass `node --check`.
+- `deck-design` registers alongside `pptx-deck-edit`; its lint runs against a real 22-slide deck and a 28-slide comparison deck.
+- `checkpoint.py` composes a labelled 3-up grid from rendered PNGs (2400×608 for three 16:9 slides).
+- `deck_lint.py` flags decorative tags such as `01 · 今天` as `copy.eyebrow-tag`, separately from hard copy failures.
 - Verified live on DSH 0.2.1-rc.3: Host boot, credential read/write/delete, `google_slides` schema, `pptx-deck-edit` catalog entry, Settings section, and a Drive `list` against a connected account.
 - The bundle installed with `application: applied` and no warnings.
 - `pptx-deck-edit` appears in the live skill catalog; loading it returns the bundled instructions and resource directory.

@@ -3,7 +3,7 @@
   "version": "0.1.1",
   "private": true,
   "type": "module",
-  "description": "Google Slides deck studio for DSH: bundles the pptx-deck-edit skill and adds Google sign-in plus a google_slides tool.",
+  "description": "Google Slides deck studio for DSH: bundled deck-design and pptx-deck-edit skills, Google sign-in, and a google_slides tool.",
   "scripts": {
     "migrate-credentials": "node scripts/migrate-credentials.mjs"
   },
@@ -21,6 +21,7 @@
     "icon.svg",
     "scripts/**",
     "pptx-deck-edit/**",
+    "deck-design/**",
     "README.md"
   ],
   "dsh": {

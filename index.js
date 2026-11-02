@@ -18,6 +18,8 @@ const ACCOUNT_KEY = 'dsh-slide/google-account';
 const CLIENT_KEY = 'dsh-slide/google-client';
 const SKILL_FILE = fileURLToPath(new URL('./pptx-deck-edit/SKILL.md', import.meta.url));
 const SKILL_DIR = path.dirname(SKILL_FILE);
+const DESIGN_SKILL_FILE = fileURLToPath(new URL('./deck-design/SKILL.md', import.meta.url));
+const DESIGN_SKILL_DIR = path.dirname(DESIGN_SKILL_FILE);
 
 const AUTH_URL = 'https://accounts.google.com/o/oauth2/v2/auth';
 const TOKEN_URL = 'https://oauth2.googleapis.com/token';
@@ -48,6 +50,23 @@ This Harness exposes Google Slides through the \`google_slides\` tool. Prefer it
 Sign-in is user-only in **Settings → Google Slides**. The tool refreshes OAuth tokens automatically, and the model never receives one. Do not ask the user to paste tokens into chat or to set \`GOOGLE_ACCESS_TOKEN\` when the tool is available.
 
 Keep the local round-trip described above for .pptx edits: export → unpack → plan → edit in batches → render and inspect → pack → import.
+
+After each batch of 2–3 slides, publish a 3-up grid in the conversation with the local path (and the Google Slides link when one exists). Add a short summary and say what is next, then continue. Ask only if a decision blocks the next batch; pause only if the user asks for interactive review.
+
+Keep the deck's existing brand assets. Do not add decorative section tags such as "01 · 今天" or redraw a logo; use the supplied file or leave the mark out.
+
+For a new deck or a full redesign, load the \`deck-design\` skill first. It carries the copy standard and the layout system; run its \`scripts/deck_lint.py\` before delivering.
+`;
+
+const DSH_DESIGN_NOTE = `
+
+## DSH extension integration
+
+\`google_slides\` is available for Google work: \`export\` a deck as .pptx, \`pdf\` for Google's own rendering, and \`import\` a finished .pptx as a new Slides file. Never ask for OAuth tokens.
+
+Use \`pptx-deck-edit\` when the task is a small edit inside an existing deck and the design must be preserved. Use this skill when the narrative, the copy, or the visual system is being created or rebuilt.
+
+Build in batches of three. After each batch, render the slides, compose a 3-up grid, post it with a short summary and links, and continue. End the turn only if the user asked for interactive review or a decision blocks the next batch. The protocol is in \`references/REVIEW-CADENCE.md\`.
 `;
 const PENDING_TTL_MS = 10 * 60 * 1000;
 let tokenRefresh;
@@ -60,36 +79,52 @@ export function apply(ctx) {
   /** state -> { verifier, redirectUri, clientId, clientSecret, createdAt } */
   const pending = new Map();
 
-  registerSkill(ctx);
+  registerSkills(ctx);
   registerTool(ctx);
   registerRoutes(ctx, pending);
 
   ctx.effect(() => () => pending.clear(), 'dsh-slide: clear pending OAuth states');
-  ctx.logger.info('[dsh-slide] pptx-deck-edit skill, Google sign-in, and google_slides tool loaded');
+  ctx.logger.info('[dsh-slide] deck-design + pptx-deck-edit skills, Google sign-in, and google_slides tool loaded');
 }
 
 /* ----------------------------------------------------------------------------
  * Skill
  * ------------------------------------------------------------------------- */
 
-function registerSkill(ctx) {
+function registerSkills(ctx) {
+  registerSkill(ctx, {
+    name: 'pptx-deck-edit',
+    file: SKILL_FILE,
+    dir: SKILL_DIR,
+    note: DSH_SKILL_NOTE,
+    fallback: 'Edit an existing slide deck (.pptx or Google Slides) while preserving its design.',
+  });
+  registerSkill(ctx, {
+    name: 'deck-design',
+    file: DESIGN_SKILL_FILE,
+    dir: DESIGN_SKILL_DIR,
+    note: DSH_DESIGN_NOTE,
+    fallback: 'Build or rebuild a slide deck with a clear argument, readable layout, and no AI-slop copy.',
+  });
+}
+
+function registerSkill(ctx, { name, file, dir, note, fallback }) {
   try {
-    const raw = readFileSync(SKILL_FILE, 'utf8');
+    const raw = readFileSync(file, 'utf8');
     const { body, fields } = parseFrontmatter(raw);
-    const description = fields.description
-      || 'Edit an existing slide deck (.pptx or Google Slides) while preserving its design.';
+    const description = fields.description || fallback;
     ctx.effect(() => ctx.skills.register({
-      name: 'pptx-deck-edit',
+      name,
       description,
-      content: `${body.trimEnd()}${DSH_SKILL_NOTE}`,
+      content: `${body.trimEnd()}${note}`,
       source: 'bundled',
       provider: 'dsh-slide',
-      path: SKILL_FILE,
-      resourceBase: { kind: 'directory', path: SKILL_DIR },
+      path: file,
+      resourceBase: { kind: 'directory', path: dir },
       invocation: { modelInvocable: true, userInvocable: true },
-    }), 'dsh-slide: register pptx-deck-edit');
+    }), `dsh-slide: register ${name}`);
   } catch (error) {
-    ctx.logger.warn(`[dsh-slide] could not register pptx-deck-edit: ${errorMessage(error)}`);
+    ctx.logger.warn(`[dsh-slide] could not register ${name}: ${errorMessage(error)}`);
   }
 }
 
