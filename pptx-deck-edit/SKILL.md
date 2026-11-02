@@ -36,7 +36,7 @@ bash $S/render.sh $W/preview-b1.pptx $W/renders/b1   # -> slide-*.png + grid.png
    - Visible text is often split across runs (e.g. `Sep` + ` 2026`). Grep `<a:t>` before a find/replace; edit the run that holds each piece.
    - Escape `& < >` in text. Notes are in `ppt/notesSlides/notesSlideN.xml` (slide N ≠ notes N; follow the slide's `.rels`).
 5. **Verify each batch.** `pack.py` (validates every XML part) -> `render.sh` -> look at every changed slide PNG and the grid. Check overflow, unwanted wrapping, overlaps, clipped text, font substitution. Fix or revert, then log the batch in `NOTES.md`.
-6. **Finish.** Pack the final `.pptx`, render a final grid, diff text vs original (`inventory.py` on both). Optional Google: `gdrive.py import` creates a NEW Slides file; use it **once, after the final pack** — not per batch. Then `gdrive.py pdf <NEW_ID>` and render the PDF (`render.sh` accepts PDF); Google wraps text differently from LibreOffice, so check again and report differences.
+6. **Finish.** Pack the final `.pptx`, render a final grid, diff text vs original (`inventory.py` on both), and confirm each changed slide's note still matches its page. Optional Google: `gdrive.py import` creates a NEW Slides file; use it **once, after the final pack** — not per batch. Then `gdrive.py pdf <NEW_ID>` and render the PDF (`render.sh` accepts PDF); Google wraps text differently from LibreOffice, so check again and report differences.
 
 ## Rules
 - Never modify the original; always output new files.
@@ -45,6 +45,9 @@ bash $S/render.sh $W/preview-b1.pptx $W/renders/b1   # -> slide-*.png + grid.png
 - Keep `NOTES.md` current so another agent can resume from it.
 - Prefer smallest edit: shorten text before shrinking fonts; shrink before moving shapes.
 - One request, one Slides file. Import the final deck once; never import every batch or every revision.
+- **A text edit includes its speaker note.** The note for a slide lives in `ppt/notesSlides/notesSlide*.xml` — find it through the slide's `.rels`, never by matching the number. A slide whose number or claim changed still carries the old note, and that stale line is what gets read aloud. Rebuild the note with the slide, and give every new or rebuilt slide one (80–150 字, structure in `../deck-design/references/SPEAKER-NOTES.md`).
+- **Chinese copy follows the shared standard.** When the text you touch is Chinese, apply `../deck-design/references/ZH-COPY.md` to that text only: verbs keep their objects, one term per object, half-width punctuation only inside Latin fragments, footnotes state source and basis. Do not restyle copy the user did not ask you to change.
+- Run `../deck-design/scripts/deck_lint.py final.pptx` before delivery (the notes gate is on by default; `--no-notes` when the deck truly needs none).
 
 ## Failure modes
 - `pack.py` reports XML error -> fix the named part (usually unescaped `&` or unclosed tag).

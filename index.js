@@ -59,7 +59,9 @@ After each batch of 2–3 slides, publish a 3-up grid in the conversation with t
 
 Keep the deck's existing brand assets, including the template's footer logo. Do not add decorative section tags such as "01 · 今天" or redraw a logo; use the supplied file at the template's position and size.
 
-For a new deck or a full redesign, load the \`deck-design\` skill first. It carries the copy standard and the layout system; run its \`scripts/deck_lint.py\` before delivering.
+Every slide keeps a speaker note, and a text edit includes its note: change a number or a claim and rewrite that slide's note in the same batch (80–150 字, structure in \`../deck-design/references/SPEAKER-NOTES.md\`). Chinese copy follows \`../deck-design/references/ZH-COPY.md\`: verbs keep their objects, one term per object, half-width punctuation only inside Latin fragments, footnotes state source and basis.
+
+For a new deck or a full redesign, load the \`deck-design\` skill first. It carries the copy standard, the layout system, and the speaker-note standard; run its \`scripts/deck_lint.py\` before delivering, with the notes gate on by default.
 `;
 
 const DSH_DESIGN_NOTE = `
@@ -71,6 +73,8 @@ const DSH_DESIGN_NOTE = `
 Use \`pptx-deck-edit\` when the task is a small edit inside an existing deck and the design must be preserved. Use this skill when the narrative, the copy, or the visual system is being created or rebuilt.
 
 Build in batches of three. After each batch, render the slides, compose a 3-up grid, post it with a short summary and links, and continue. End the turn only if the user asked for interactive review or a decision blocks the next batch. The protocol is in \`references/REVIEW-CADENCE.md\`.
+
+Chinese copy goes through \`references/ZH-COPY.md\` before the lint (verbs with objects, one term per object, complete parallel items, fixed Latin casing). Every slide carries a speaker note by default — \`references/SPEAKER-NOTES.md\`, 80–150 字 in three beats — and \`deck_lint.py\` fails a slide without one; pass \`--no-notes\` only when the user asked for no notes.
 `;
 const PENDING_TTL_MS = 10 * 60 * 1000;
 let tokenRefresh;
@@ -210,8 +214,10 @@ function composeSlideTask(brief) {
     '',
     '新 deck 用 deck-design 技能；修改已有 .pptx 用 pptx-deck-edit 技能。',
     '内容组织优先用结构图，不要用项目符号堆句子：先选 references/DIAGRAM-PATTERNS.md 里的结构（boundary / swimlane / tree / staircase / trunk + glue 等），再写标签；每页正文按技能预算（≤ 60 字），标签要短。',
+    '中文措辞按 references/ZH-COPY.md：动词带宾语（不写“1 分钟发完”），同一对象全篇一个词，并列项补齐同调，中英文之间留空格、产品名固定大小写，脚注只写“来源和口径”。',
+    '每一页都要写 speaker note（references/SPEAKER-NOTES.md，80–150 字：结论句 + 论据 + 过渡），文案定稿后再写；改了页面上的数字或结论，同一批里把备注一起改掉。',
     '按技能里的流程推进：需求足够明确就直接开始，确有阻塞再问我；每完成三页渲染并给出 3-up 预览、文件路径和一句说明后继续，不要停下来等我逐批确认。',
-    '成品 .pptx 放在当前工作目录；交付前运行 deck_lint.py 并修掉硬失败。Google Slides 只在最终交付时导入一次，不要每批/每版导入；一次请求只留一个 Slides 文件。',
+    '成品 .pptx 放在当前工作目录；交付前运行 deck_lint.py 并修掉硬失败（默认包含缺备注的检查）。Google Slides 只在最终交付时导入一次，不要每批/每版导入；一次请求只留一个 Slides 文件。',
   ].join('\n');
 }
 

@@ -5,17 +5,19 @@ Usage:
     python3 deck_lint.py deck.pptx
     python3 deck_lint.py deck.pptx --json
     python3 deck_lint.py deck.pptx --min-score 80
+    python3 deck_lint.py deck.pptx --no-notes
 
 Exit codes: 0 = clean enough, 1 = hard failures, 2 = cannot read the deck.
 
 The linter is deliberately opinionated. It encodes the deck-design standard:
-readable type, low density, varied composition, copy without AI tells, and a
-visual structure on every content slide (tables are appendix material). It does
-not judge whether the argument is right.
+readable type, low density, varied composition, copy without AI tells, a
+speaker note on every slide, and a visual structure on every content slide
+(tables are appendix material). It does not judge whether the argument is right.
 """
 from __future__ import annotations
 
 import argparse
+import difflib
 import json
 import re
 import sys
@@ -59,6 +61,28 @@ QUOTE = re.compile(r"「[^」]{1,14}」")
 PARALLEL = re.compile(r"[一二三四五六七八九十两]{1,2}(个|条|层|类|块|步|项|件|种|期)")
 META_DOC = re.compile(r"本页|这份提案|本文|本方案在讲|接下来我们")
 
+# Speaker notes: default on for every slide (references/SPEAKER-NOTES.md).
+NOTES_FLOOR = 60
+NOTES_CEIL = 220
+NOTES_ECHO = 25
+
+# Chinese wording checks (references/ZH-COPY.md). Kept narrow on purpose:
+# a check that fires on ordinary sentences trains the reader to ignore the lint.
+ZH_DANGLING = re.compile(
+    r"(?:(?:分钟|秒|小时|天|周|个月|人|次)\s*(?:就|才)?(?:发|写|做|改|跑|切|导|批|装|算)"
+    r"|^[ \t]*(?:发|写|做|改|跑|切|导|批|装|算|分))(?:完|好|错)了?(?=[，,。；;！？、]|$)"
+)
+ZH_META_SOURCE = re.compile(
+    r"(?:示例|数据|内容|截图|结论|案例)来自"
+    r"|(?:代码|文档|源码|资源类型|API|接口)(?:与[^。；]{0,6}){0,2}实查"
+)
+ZH_TRANSLATIONESE = re.compile(
+    r"唯一(?:写入|负责|出口|来源|入口)者|对于[^，。]{0,10}而言|之所以"
+    r"|综上所述|需要注意的是|众所周知|不言而喻|不言自明"
+)
+UNIT_SPACED = re.compile(r"\d+ (?=[\u3400-\u4dbf\u4e00-\u9fff])")
+UNIT_TIGHT = re.compile(r"\d+(?=[\u3400-\u4dbf\u4e00-\u9fff])")
+
 LABEL_TITLES = {
     "agenda", "executive summary", "executive-summary", "q&a", "thank you", "thanks",
     "现状与目标", "方案设计", "角色与流程", "落地路线", "背景与目标", "方案全貌",
@@ -96,6 +120,7 @@ class SlideInfo:
     visual_blocks: int = 0
     prose_units: int = 0
     label_count: int = 0
+    notes: str = ""
 
 
 def emu_to_in(value) -> float:
@@ -287,6 +312,13 @@ def read_deck(path: Path) -> tuple[list[SlideInfo], float, float]:
             elif n >= 1:
                 info.label_count += 1
 
+        # Speaker notes: the spoken script for this slide, if any.
+        if slide.has_notes_slide:
+            try:
+                info.notes = slide.notes_slide.notes_text_frame.text.strip()
+            except Exception:
+                info.notes = ""
+
         # Title: a placeholder if present, else the largest top text.
         candidates = [item for item in info.texts if item.top < 1.75 and units(item.text) >= 3]
         if getattr(slide.shapes, "title", None) is not None and slide.shapes.title.text.strip():
@@ -307,7 +339,7 @@ def add(finding, severity, code, message, slides=()):
     })
 
 
-def lint(path: Path):
+def lint(path: Path, require_notes: bool = True):
     slides, width, height = read_deck(path)
     findings: list[dict] = []
     scores = {"content": 100.0, "design": 100.0}
@@ -441,6 +473,92 @@ def lint(path: Path):
             f"agenda's exact name and number; otherwise remove it. {examples}",
             unique_slides)
         scores["content"] -= min(8, 4 * len(unique_slides))
+
+    # ---- speaker notes: one per slide, in the deck's language ----
+    noted = [slide for slide in slides if slide.notes]
+    missing_notes = [slide.number for slide in slides if not slide.notes]
+    stats["notes"] = len(noted)
+    stats["notes_missing"] = len(missing_notes)
+    stats["notes_avg"] = round(sum(units(s.notes) for s in noted) / len(noted)) if noted else 0
+    if missing_notes and require_notes:
+        add(findings, "hard", "notes.missing",
+            f"{len(missing_notes)} of {len(slides)} slide(s) have no speaker note. "
+            "Every slide gets one — the claim spoken aloud, the number or mechanism behind it, "
+            "the hand-off — 80–150 字 (references/SPEAKER-NOTES.md).",
+            missing_notes)
+        scores["content"] -= min(24, 10 + 1.5 * len(missing_notes))
+
+    short_notes = [(units(slide.notes), slide.number) for slide in noted
+                   if units(slide.notes) < NOTES_FLOOR]
+    long_notes = [(units(slide.notes), slide.number) for slide in noted
+                  if units(slide.notes) > NOTES_CEIL]
+    if short_notes or long_notes:
+        parts = []
+        if short_notes:
+            parts.append("short: " + ", ".join(f"slide {n} ({c})" for c, n in short_notes[:4]))
+        if long_notes:
+            parts.append("long: " + ", ".join(f"slide {n} ({c})" for c, n in long_notes[:4]))
+        add(findings, "warn", "notes.length",
+            f"{len(short_notes) + len(long_notes)} note(s) outside 60–220 units; target is 80–150. "
+            + "; ".join(parts),
+            [n for _, n in short_notes + long_notes])
+        scores["content"] -= min(6, 2 * (len(short_notes) + len(long_notes)))
+
+    echo_hits = []
+    for slide in noted:
+        page = "\n".join(item.text for item in slide.texts)
+        if not page:
+            continue
+        match = difflib.SequenceMatcher(None, slide.notes, page, autojunk=False).find_longest_match(
+            0, len(slide.notes), 0, len(page))
+        if match.size >= NOTES_ECHO:
+            echo_hits.append((slide.number, slide.notes[match.a:match.a + match.size]))
+    if echo_hits:
+        examples = "; ".join(f"slide {n}: “{frag}”" for n, frag in echo_hits[:3])
+        add(findings, "warn", "notes.echo",
+            f"{len(echo_hits)} note(s) repeat the page for {NOTES_ECHO}+ characters. "
+            f"The note explains and connects; it does not read the slide. {examples}",
+            [n for n, _ in echo_hits])
+        scores["content"] -= min(8, 3 * len(echo_hits))
+
+    # ---- Chinese wording (references/ZH-COPY.md) ----
+    dangling = [(slide.number, match.group(0)) for slide in slides for item in slide.texts
+                for match in ZH_DANGLING.finditer(item.text)]
+    if dangling:
+        examples = "; ".join(f"slide {n}: “{g}”" for n, g in dangling[:4])
+        add(findings, "warn", "copy.zh-dangling",
+            f"{len(dangling)} bare result complement(s) (完/好/错) with no object. "
+            f"Say what was finished or cut the phrase. {examples}",
+            [n for n, _ in dangling])
+        scores["content"] -= min(9, 3 * len(dangling))
+
+    meta_source = [(slide.number, match.group(0)) for slide in slides for item in slide.texts
+                   for match in ZH_META_SOURCE.finditer(item.text)]
+    if meta_source:
+        examples = "; ".join(f"slide {n}: “{g}”" for n, g in meta_source[:4])
+        add(findings, "warn", "copy.zh-meta-source",
+            f"{len(meta_source)} footnote(s) explain how the writer checked instead of what the "
+            f"source is. Write “来源：X；口径：Y”. {examples}",
+            [n for n, _ in meta_source])
+        scores["content"] -= min(8, 3 * len(meta_source))
+
+    translationese = [(slide.number, match.group(0)) for slide in slides for item in slide.texts
+                      for match in ZH_TRANSLATIONESE.finditer(item.text)]
+    if translationese:
+        examples = "; ".join(f"slide {n}: “{g}”" for n, g in translationese[:4])
+        add(findings, "warn", "copy.zh-translationese",
+            f"{len(translationese)} translated-Chinese construction(s). Rewrite as subject + verb "
+            f"+ object. {examples}",
+            [n for n, _ in translationese])
+        scores["content"] -= min(9, 3 * len(translationese))
+
+    spaced_units = any(UNIT_SPACED.search(item.text) for slide in slides for item in slide.texts)
+    tight_units = any(UNIT_TIGHT.search(item.text) for slide in slides for item in slide.texts)
+    if spaced_units and tight_units:
+        add(findings, "warn", "copy.unit-space",
+            "Numbers use two spacings: “37 人” and “37人”. Keep one space between digits and "
+            "Chinese throughout the deck.")
+        scores["content"] -= 3
 
     # ---------------- design ----------------
     sizes = [(item.size, item.slide) for slide in slides for item in slide.texts
@@ -686,7 +804,8 @@ def render_text(path: Path, findings, scores, stats) -> str:
         f"{stats['slides']} slides  ·  {stats.get('avg_shapes', 0)} shapes/slide  ·  "
         f"{stats.get('median_density', 0)} body units/slide  ·  "
         f"max prose {stats.get('max_prose', 0)}  ·  "
-        f"min {stats.get('min_font', '?')} pt  ·  median {stats.get('median_font', '?')} pt",
+        f"min {stats.get('min_font', '?')} pt  ·  median {stats.get('median_font', '?')} pt  ·  "
+        f"notes {stats.get('notes', 0)}/{stats['slides']} ({stats.get('notes_avg', 0)} 字)",
         f"Content {scores['content']}/100   Design {scores['design']}/100   "
         f"Overall {scores['overall']}/100",
         "",
@@ -716,13 +835,15 @@ def main(argv=None) -> int:
     parser.add_argument("--json", action="store_true", help="emit JSON")
     parser.add_argument("--min-score", type=int, default=0,
                         help="exit 1 if the overall score is below this value")
+    parser.add_argument("--no-notes", action="store_true",
+                        help="do not fail slides that have no speaker note")
     args = parser.parse_args(argv)
 
     if not args.deck.exists():
         print(f"deck_lint: no such file: {args.deck}", file=sys.stderr)
         return 2
     try:
-        slides, findings, scores, stats = lint(args.deck)
+        slides, findings, scores, stats = lint(args.deck, require_notes=not args.no_notes)
     except Exception as error:
         print(f"deck_lint: cannot read {args.deck}: {error}", file=sys.stderr)
         return 2

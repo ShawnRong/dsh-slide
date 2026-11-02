@@ -1,5 +1,5 @@
 ---
-description: Build or rebuild a slide deck from scratch, notes, or a source document: argument, anti-slop copy, diagram-first layouts, per-slide text budgets, a lint + visual gate, and a 3-up progress grid every three slides. Use for presentations, proposals, reports, 演示文稿, or deck redesigns. For small edits inside an existing deck, use pptx-deck-edit.
+description: Build or rebuild a slide deck from scratch, notes, or a source document: argument, anti-slop copy with a Chinese wording standard, diagram-first layouts, per-slide text budgets, a default speaker note on every slide, a lint + visual gate, and a 3-up progress grid every three slides. Use for presentations, proposals, reports, 演示文稿, 中文 deck, or deck redesigns. For small edits inside an existing deck, use pptx-deck-edit.
 ---
 
 # deck-design
@@ -20,6 +20,8 @@ Design for the back of the room. A deck is read in sequence, so the titles alone
 - A reader who only reads titles gets the argument.
 - **A content slide is a structure with labels.** Pick the structure before the copy. A bullet list or a table is not a structure.
 - **Copy budget: ≤ 60 Chinese characters of prose per slide** (≤ 30 English words), ≤ 24 labels of ≤ 12 characters, and no text block over two lines. If it does not fit, cut or split; never shrink.
+- **Chinese copy follows one standard** (`references/ZH-COPY.md`): every verb carries its object, one term per object, parallel items are complete and in the same register, Latin product names keep one casing, and a footnote states source and basis instead of how the writer checked.
+- **Every slide carries a speaker note** — 80–150 字, the claim spoken aloud, the one number or mechanism behind it, and the hand-off to the next slide (`references/SPEAKER-NOTES.md`). Write it after the copy is final; the lint fails a slide without one.
 - Body text is readable at presentation size: body 12 pt minimum, 14–16 pt default; 9–10 pt only for source, footnote, and page number.
 - No template autopilot: at least four distinct body compositions in a deck of ten or more slides.
 - No AI tells: no "不是 A，而是 B", no "一页看懂", no "这才是真正的…", no meta-commentary about the document or the model.
@@ -38,6 +40,7 @@ Design for the back of the room. A deck is read in sequence, so the titles alone
 - When adding to an existing deck, match its type scale, palette, chart style, spacing, and copy voice before adding anything new.
 - Rebuild an interface, chart, or brand element from its real source files and assets, not from an impression of it. Never redraw a supplied logo.
 - Every title is a claim. Delete any slide whose title is a label.
+- **A note never goes stale.** Changing a slide's number or claim means rewriting its note in the same pass; the note is in the deck's language, and a stale one contradicts the page in front of an audience.
 - Run the lint before delivery; fix every hard failure.
 
 ## Workflow
@@ -45,10 +48,10 @@ Design for the back of the room. A deck is read in sequence, so the titles alone
 1. **Brief.** Write five lines: audience, decision they must make, one-sentence thesis, three pieces of evidence, what is explicitly out of scope. Ask only where an answer changes the deck; the protocol is `references/QUESTIONS.md`. With no one to answer, decide and state the assumptions in one line. If the deck carries a brand, ask for the logo file and fonts, and keep the template's footer logo. If there is no asset, ask for it rather than recreate it. A missing number is a bracketed placeholder, not a question.
 2. **Outline.** One line per slide: claim, structure, and label budget — `04 — 分工按谁理解数据模型切 — boundary — 8 labels + 1 statement`. No visual styling yet. Delete any slide whose claim is already implied by another; if no structure fits, the slide is a statement or it is cut.
 3. **Storyboard.** Add the layout archetype, the structure, and the single key line. Sketch the structure as ASCII (nodes, edges, rail); count nodes (≤ 7) and labels (≤ 24). Check rhythm: no more than two consecutive slides with the same archetype; no table or bullet list; put a statement or visual break after every three content slides.
-4. **Build and copy-pass in batches of three.** Use `python-pptx` or `pptx-deck-edit` on the supplied template. Build the geometry first — `scripts/diagram_kit.py` provides boxes, edges, dots, branches, staircase risers, chips, and a content frame — then place the labels. If you start with a text box, the slide will be a list. Keep one type scale, one grid, one accent colour. Run the rules in `references/ANTI-SLOP.md` before posting: read every title alone; if it is a label ("现状与目标", "方案设计"), rewrite it as a claim. Then run the checkpoint in `references/REVIEW-CADENCE.md`: render the three slides, compose a 3-up grid, post it with a one-line summary and the local path, and continue. Ask a question only if a decision blocks the next batch. End the turn only if the user asked for interactive review.
-5. **Lint.** Run `python3 $S/deck_lint.py deck.pptx`, where `S` is this skill's `scripts/` directory. Fix hard failures and anything that pulls the score below 80. The layout checks (`layout.table`, `layout.list`, `layout.text-only`, `layout.labels`, `copy.prose-budget`) are the ones that catch a list or table dressed as a slide. Run it on the full deck before delivery; a partial deck can be linted at any checkpoint.
+4. **Build, copy-pass, and notes in batches of three.** Use `python-pptx` or `pptx-deck-edit` on the supplied template. Build the geometry first — `scripts/diagram_kit.py` provides boxes, edges, dots, branches, staircase risers, chips, and a content frame — then place the labels. If you start with a text box, the slide will be a list. Keep one type scale, one grid, one accent colour. Run `references/ANTI-SLOP.md` and `references/ZH-COPY.md` before posting: read every title alone; if it is a label ("现状与目标", "方案设计"), rewrite it as a claim. Once the copy holds, write each slide's speaker note (`references/SPEAKER-NOTES.md`) — the note is written against final copy, never a draft. Then run the checkpoint in `references/REVIEW-CADENCE.md`: render the three slides, compose a 3-up grid, post it with a one-line summary and the local path, and continue. Ask a question only if a decision blocks the next batch. End the turn only if the user asked for interactive review.
+5. **Lint.** Run `python3 $S/deck_lint.py deck.pptx`, where `S` is this skill's `scripts/` directory. Fix hard failures and anything that pulls the score below 80. The layout checks (`layout.table`, `layout.list`, `layout.text-only`, `layout.labels`, `copy.prose-budget`) are the ones that catch a list or table dressed as a slide; `notes.missing` fails a slide with no speaker note, and the `copy.zh-*` checks catch dangling verbs, translationese, and footnote commentary. Run it on the full deck before delivery; a partial deck can be linted at any checkpoint.
 6. **Visual pass.** Render every slide (LibreOffice, or Google Slides PDF for a Google deck) and look at the images. Check overflow, collisions, contrast, and whether the focal point is obvious in three seconds. Log fixes.
-7. **Ship.** Deliver the `.pptx`, a PDF render, and a short note on assumptions and open questions. Include the checkpoint images or a final contact sheet so the user can review without opening the file. Import to Google Slides **once, after the final lint and visual pass**: one request produces one Slides file, never one per batch.
+7. **Ship.** Deliver the `.pptx`, a PDF render, and a short note on assumptions and open questions. Include the checkpoint images or a final contact sheet so the user can review without opening the file. Every slide carries its speaker note; the notes travel into Google Slides on import and back on export. Import to Google Slides **once, after the final lint and visual pass**: one request produces one Slides file, never one per batch.
 
 ## Diagram-first
 
@@ -83,7 +86,8 @@ The geometry primitives are in `scripts/diagram_kit.py`. Run `python3 scripts/di
 - **No false candour.** "诚实标注", "坦白说", "需要说明的是" are performance, not transparency. State the fact; put sourcing in one footnote.
 - **One hedging convention.** Mark estimates once in a footnote, not "(估算)" after every number.
 - **Plain verbs.** 查、拒、记、改、发、回滚. Avoid 赋能、抓手、闭环、沉淀、对齐、复用、组合拳.
-- **Speaker notes.** Add them only when asked. When asked, the notes carry the spoken script; take the paragraphs off the slide and leave a one-line headline plus one figure or image.
+- **Speaker notes.** Three beats — the claim spoken aloud, the one number or mechanism that supports it, the hand-off to the next slide — in 80–150 字. The note explains and connects; it does not read the page, add a fact the page does not carry, or open with "如图所示". Structure and worked example: `references/SPEAKER-NOTES.md`; when the user wants no notes, run the lint with `--no-notes`.
+- **Chinese copy.** Apply `references/ZH-COPY.md` before the lint: every verb has an object (`1 分钟发完` → `发布只用 1 分钟`), one term per object (`辖区` everywhere, not 辖区/范围/经销商范围), parallel items are complete and in one register, product names keep one casing with a space between Chinese and Latin, and a footnote gives source and basis only.
 - **Cut 30%.** After drafting, delete one sentence per slide. If nothing is lost, delete two.
 
 Details, banned patterns, and before/after rewrites: `references/ANTI-SLOP.md`.
@@ -133,15 +137,18 @@ Run the lint on the full deck before delivery. A partial deck can be linted at a
 S=<this-skill-dir>/scripts
 python3 $S/deck_lint.py deck.pptx           # report, exit 1 on hard failures
 python3 $S/deck_lint.py deck.pptx --json    # machine-readable
+python3 $S/deck_lint.py deck.pptx --no-notes  # skip the speaker-note gate
 ```
 
-It checks banned phrasing, decorative section tags, type size (hard below 9 pt; a warning for 9–11 pt runs outside the footer), density, shape count, layout sameness, and contrast. It also flags tables on content slides, sentence-length prose over the budget, and slides with no visual structure. It does not judge whether the argument is good; that is the storyboard review.
+It checks banned phrasing, decorative section tags, type size (hard below 9 pt; a warning for 9–11 pt runs outside the footer), density, shape count, layout sameness, and contrast. It also flags tables on content slides, sentence-length prose over the budget, slides with no visual structure, a slide without a speaker note, notes that copy the page, and the Chinese wording defects in `references/ZH-COPY.md` (`copy.zh-*`). It does not judge whether the argument is good; that is the storyboard review.
 
 Then look at every rendered slide. A clean lint with an unreadable slide is still a failure.
 
 ## Resources
 
 - `references/ANTI-SLOP.md` — patterns, rewrites, brand/meta rules, and a copy checklist.
+- `references/ZH-COPY.md` — the Chinese wording standard: verbs with objects, one term per object, parallel items, Latin mixing, punctuation, footnotes, and two worked before/after pages.
+- `references/SPEAKER-NOTES.md` — the default per-slide note: 80–150 字 in three beats, what not to write, and how notes land in `.pptx` and Google Slides.
 - `references/DIAGRAM-PATTERNS.md` — ten structures with geometry, copy budgets, ASCII sketches, and worked before/after transformations.
 - `scripts/diagram_kit.py` — brand-neutral python-pptx primitives for boxes, edges, branches, dots, staircases, chips, and the content frame.
 - `references/QUESTIONS.md` — when to ask, how to shape the options, and one worked example.

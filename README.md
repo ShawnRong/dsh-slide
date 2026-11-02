@@ -4,6 +4,7 @@ A DSH extension for building and editing slide decks. It adds:
 
 - two bundled skills — **`deck-design`** for building or rebuilding a deck with a diagram-first layout standard and per-slide text budgets, and **`pptx-deck-edit`** for edits that preserve an existing one;
 - a **diagram-first pattern catalog** (boundary, swimlane, tree, staircase, trunk + glue, and more) with a python-pptx geometry kit, plus `deck_lint.py` checks for tables, prose walls, and text-only slides;
+- a **Chinese copy standard** (`deck-design/references/ZH-COPY.md`): verbs with objects, one term per object, parallel items, Latin mixing, punctuation, and footnotes — with a per-slide speaker note on by default (`SPEAKER-NOTES.md`);
 - a **Google account login** flow in **Settings → Google Slides**;
 - a **`google_slides`** agent tool for listing, exporting, importing, and PDF-rendering Google Slides decks.
 
@@ -133,14 +134,18 @@ python3 deck-design/scripts/deck_lint.py deck.pptx --json
 
 It reports a content and design score and hard failures for:
 
+- a slide with no speaker note (`notes.missing`; pass `--no-notes` for a deck that needs none);
 - AI tells such as “不是…而是…”, “一页看懂”, “诚实标注”, meta citations, and invented section tags such as `01 · 今天`;
 - type below 9 pt (a hard failure), 9–11 pt runs outside the footer (a warning), body copy over the density budget, and more than ~14 shapes per slide;
 - fewer than four distinct body compositions in a deck of ten or more slides;
-- low-contrast text and text outside the canvas.
+- low-contrast text and text outside the canvas;
+- Chinese wording defects: a bare result complement with no object (`1 分钟发完`, `写完，`), a footnote that explains how the writer checked (`示例来自…`, `代码与资源类型实查`), translated-Chinese constructions (`唯一写入者`, `之所以…`), and two different number spacings in one deck (`37 人` vs `37人`).
+
+Speaker notes are checked too: a note shorter than 60 or longer than 220 units, and a note that repeats the page for 25+ characters (`notes.echo`), both warn.
 
 During review, the two agent-built proposals scored in the low 30s and the human-written comparison in the high 70s. The score is a tripwire, not a grade — the visual pass still decides.
 
-`deck-design/references/ANTI-SLOP.md` lists the patterns and rewrites; `DESIGN-SYSTEM.md` gives the type scale, grid, density budget, and eight layout archetypes; `SPATIAL.md` gives the PPTX vertical budget and heading/footer rules; `QUESTIONS.md` gives the ask-before-building protocol.
+`deck-design/references/ANTI-SLOP.md` lists the patterns and rewrites; `ZH-COPY.md` is the Chinese wording standard with two worked before/after pages; `SPEAKER-NOTES.md` defines the default per-slide note; `DESIGN-SYSTEM.md` gives the type scale, grid, density budget, and eight layout archetypes; `SPATIAL.md` gives the PPTX vertical budget and heading/footer rules; `QUESTIONS.md` gives the ask-before-building protocol.
 
 A template asset is not slop: a footer logo supplied by the template stays at its position and size, with the light/dark variant the template specifies. Take that size from the template master, not from a brand-guide display slide. If the tagline is unreadable at the footer size, use the template's compact mark instead of enlarging the lockup. The rules only forbid inventing, moving, recolouring, or redrawing a mark.
 
@@ -149,6 +154,12 @@ A template asset is not slop: a footer logo supplied by the template stays at it
 `deck-design` builds in batches of three. After each batch the agent renders the three slides, composes a labelled 3-up grid, and posts it with a one-line summary, the local `.pptx` path, and the Google Slides link when it exists. It keeps building by default; it pauses only when the user asks for interactive review or a decision blocks the next batch.
 
 The message template, question patterns, and feedback rules are in `deck-design/references/REVIEW-CADENCE.md`; `deck-design/scripts/checkpoint.py` composes the grid. If the client cannot render inline images, the agent calls `present` with the grid so the user gets a preview card.
+
+## Speaker notes
+
+Every slide gets a speaker note by default: 80–150 字 in three beats — the claim spoken aloud, the number or mechanism behind it, and the hand-off to the next slide. The note explains and connects; it does not read the page or add a fact the page does not carry. `deck_lint.py` fails a slide without one, and `pptx-deck-edit` rewrites a slide's note whenever the edit changes its number or claim.
+
+Notes live in `ppt/notesSlides/notesSlide*.xml` (find them through the slide's `.rels`, never by matching the number) and travel into Google Slides on import and back on export.
 
 ## How it is put together
 
@@ -160,8 +171,8 @@ The message template, question patterns, and feedback rules are in `deck-design/
 | `cordis.patch.yml` | Inserts the Host row. |
 | `locale/{en,zh}.json` | Plugin Manager title and description. |
 | `icon.svg` | Original deck/slide icon. |
-| `pptx-deck-edit/` | The upstream edit skill (unchanged), exposed with a runtime note. |
-| `deck-design/` | The build/rebuild skill: copy standard, design system, space math, question protocol, 3-slide progress grid (`checkpoint.py`), and `deck_lint.py`. |
+| `pptx-deck-edit/` | The upstream edit skill, with a DSH runtime note and two house rules added: a text edit includes its speaker note, and Chinese copy follows `ZH-COPY.md`. |
+| `deck-design/` | The build/rebuild skill: copy standards (`ANTI-SLOP.md`, `ZH-COPY.md`), speaker notes, design system, space math, question protocol, 3-slide progress grid (`checkpoint.py`), and `deck_lint.py`. |
 
 Credential records:
 
@@ -201,6 +212,8 @@ Routes:
 - The three deck routes pass in the same stub Host: list, open (updates `openedAt`), 404 for an unknown deck, 403 for a foreign origin, and forget.
 - Live slot inspection shows `dsh-slide.decks` active in both `main` and `sidebar.panellist`. The Host half (the three deck routes) and the panel's visual state still need a check after the app restarts; visual verification is unavailable from this session.
 - `deck_lint.py` flags decorative tags such as `01 · 今天` as `copy.eyebrow-tag`, separately from hard copy failures.
+- The notes gate fires on a deck with no notes (`notes.missing`, exit 1) and passes with `--no-notes`; the Chinese checks catch the two worked pages in `ZH-COPY.md` (`1 分钟发完`, `写完，`, `示例来自…`, `代码与资源类型实查`, `唯一写入者`, `之所以`) and stay quiet on the rest of that deck.
+- `AI-Foundation-Proposal-2026-11.pptx` now carries 16 speaker notes (94 字 average) and the revised P05/P10 copy; it renders clean after the edit and lints at 82/100 with no new hard failures.
 - Verified live on DSH 0.2.1-rc.3: Host boot, credential read/write/delete, `google_slides` schema, `pptx-deck-edit` catalog entry, Settings section, and a Drive `list` against a connected account.
 - The bundle installed with `application: applied` and no warnings.
 - `pptx-deck-edit` appears in the live skill catalog; loading it returns the bundled instructions and resource directory.
