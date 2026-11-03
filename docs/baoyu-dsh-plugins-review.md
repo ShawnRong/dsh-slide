@@ -174,6 +174,8 @@ Artifacts 页的 CSS 只做两件事：**完全用宿主 token**，只给自己�
 
 ### P1 · Google 评论桥（2–3 天，需评估 scope）
 
+> 已实现（1.1.0）：`google_slides action=comments` 读未解决线程（作者、引用原文、回复、`disco` 深链），`include_resolved` 看已解决；面板卡片显示未解决计数（批量一次、Host 缓存 60 s、只限已登记的 deck）。另外补了 `action=update`：把改好的 `.pptx` `PATCH` 回同一个 fileId，链接、共享、评论都保留，旧内容进版本历史——这样“读评论 → 改 → 写回原位”就闭环了。**回复和标记已解决仍然没做**（要写评论接口，且容易越权），后台轮询投递也按本文自己的建议先不上——`inject`/`followup` 主动投递的噪音成本大于收益。定位靠评论引用的文字 + `inventory.py`，因为 Drive 的 anchor 不给人页码；单字引用会歧义，工具会直接提示“无法定位、先问”。
+
 Google Slides 没有可嵌入的评论层（编辑器是跨域 iframe），所以不做“选元素评论”，做**评论同步**：
 
 - `google_slides` 增加 `action=comments file_id=…`：`drive.comments.list`（`fields=id,content,quotedFileContent,author,createdTime,resolved,replies`），返回未解决线程。现有 `drive.readonly` 足够读。

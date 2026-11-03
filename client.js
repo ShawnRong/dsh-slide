@@ -1,5 +1,5 @@
 window.__ModuleLoader__.load({
-  id: '@local/dsh-slide',
+  id: 'dsh-plugin-google-slides',
   factory(require) {
     const React = require('react');
     const h = React.createElement;
@@ -40,11 +40,11 @@ window.__ModuleLoader__.load({
       setup_help_3: 'For a Web application client, add the redirect URI below exactly.',
       setup_help_4: 'Paste the client ID and secret here. They go only to Google’s OAuth endpoint.',
       open_console: 'Open Google Cloud credentials',
-      scope_note: 'Scopes: profile, Drive files created by this app, and read-only access to existing Drive files.',
+      scope_note: 'Scopes: profile, Drive files created by this app, and read-only access to existing Drive files, including their comments.',
       skill_title: 'Deck skills',
       skill_body: 'deck-design builds or rebuilds a deck with a copy standard, a layout system, an automated lint gate, and a 3-up progress grid every three slides. pptx-deck-edit edits an existing .pptx in small OOXML batches and renders every batch.',
       tool_title: 'google_slides tool',
-      tool_body: 'Lets the agent list decks, export .pptx or PDF, and import a finished deck as a new Google Slides file. The model never sees your token.',
+      tool_body: 'Lets the agent list decks, read their open comments, export .pptx or PDF, and import a finished deck as a new Google Slides file. The model never sees your token.',
       available: 'Available',
       token_note: 'Access tokens refresh automatically when a refresh token is present.',
       expires: 'Access expires',
@@ -89,10 +89,15 @@ window.__ModuleLoader__.load({
       'decks.source.import': 'Imported',
       'decks.source.export': 'Exported',
       'decks.source.pdf': 'PDF export',
+      'decks.source.update': 'Updated in place',
       'decks.source.open': 'Opened',
       'decks.recordNote': 'Records stay on this computer. Removing one does not delete the Google Slides file.',
       'decks.justNow': 'just now',
       'decks.removed': 'Removed from the list.',
+      'decks.comments.one': '1 open comment',
+      'decks.comments.many': '{count} open comments',
+      'decks.comments.aria': '{count} open comments in Google Slides',
+      'decks.comments.readonly': 'Comments are read-only here. Open Google Slides to reply or resolve.',
     };
 
     const ZH = {
@@ -130,11 +135,11 @@ window.__ModuleLoader__.load({
       setup_help_3: '如果选择“Web 应用”，请把下面的重定向 URI 原样加入授权列表。',
       setup_help_4: '把客户端 ID 和密钥粘贴到这里；它们只会发送到 Google 的 OAuth 端点。',
       open_console: '打开 Google Cloud 凭据页',
-      scope_note: '权限范围：个人资料、此应用创建的 Drive 文件，以及读取现有 Drive 文件。',
+      scope_note: '权限范围：个人资料、此应用创建的 Drive 文件，以及读取现有 Drive 文件（含其中的评论）。',
       skill_title: '演示文稿技能',
       skill_body: 'deck-design 负责从零搭建或改版：文案标准、版式系统、自动化检查，并且每 3 页输出一张进度图；pptx-deck-edit 负责在保留原设计的前提下，分批编辑现有 .pptx 并逐批渲染。',
       tool_title: 'google_slides 工具',
-      tool_body: 'Agent 可以列出演示文稿、导出 .pptx/PDF，并把完成的演示文稿导入为新的 Google Slides 文件。模型不会接触你的令牌。',
+      tool_body: 'Agent 可以列出演示文稿、读取其中未解决的评论、导出 .pptx/PDF，并把完成的演示文稿导入为新的 Google Slides 文件。模型不会接触你的令牌。',
       available: '可用',
       token_note: '存在刷新令牌时会自动刷新访问令牌。',
       expires: '访问令牌到期',
@@ -179,10 +184,15 @@ window.__ModuleLoader__.load({
       'decks.source.import': '导入',
       'decks.source.export': '导出',
       'decks.source.pdf': '导出 PDF',
+      'decks.source.update': '就地更新',
       'decks.source.open': '打开过',
       'decks.recordNote': '记录只保存在这台电脑上；移除记录不会删除 Google Slides 文件。',
       'decks.justNow': '刚刚',
       'decks.removed': '已从列表移除。',
+      'decks.comments.one': '1 条未解决评论',
+      'decks.comments.many': '{count} 条未解决评论',
+      'decks.comments.aria': 'Google 幻灯片里有 {count} 条未解决评论',
+      'decks.comments.readonly': '这里的评论是只读的；回复或标记已解决请到 Google 幻灯片里操作。',
     };
 
     function GoogleSlidesPage({ ctx, t }) {
@@ -744,6 +754,7 @@ window.__ModuleLoader__.load({
       if (deck.source === 'import') return t('decks.source.import');
       if (deck.source === 'pdf') return t('decks.source.pdf');
       if (deck.source === 'export') return t('decks.source.export');
+      if (deck.source === 'update') return t('decks.source.update');
       return t('decks.source.open');
     }
 
@@ -825,9 +836,16 @@ window.__ModuleLoader__.load({
       );
     }
 
+    function CommentIcon({ size = 12 }) {
+      return h('svg', { width: size, height: size, viewBox: '0 0 16 16', fill: 'none', 'aria-hidden': 'true' },
+        h('path', { d: 'M13 4.6v5.1a1 1 0 0 1-1 1H7.6L4.4 13v-2.3H4a1 1 0 0 1-1-1V4.6a1 1 0 0 1 1-1h8a1 1 0 0 1 1 1Z', stroke: 'currentColor', strokeWidth: 1.3, strokeLinejoin: 'round' })
+      );
+    }
+
     function DecksPage({ ctx, t }) {
       useLocaleRevision(ctx);
       const [state, setState] = useState({ status: 'loading', decks: [], error: '', restart: false });
+      const [counts, setCounts] = useState({});
       const [query, setQuery] = useState('');
       const [filter, setFilter] = useState('all');
       const [refreshing, setRefreshing] = useState(false);
@@ -836,6 +854,21 @@ window.__ModuleLoader__.load({
       const [notice, setNotice] = useState('');
       const mounted = useRef(true);
       const reading = useRef(false);
+
+      // Open-comment counts are decoration on the cards: one batched request for
+      // the first screenful, and a failure leaves the chip off rather than
+      // breaking the list.
+      const loadCounts = useCallback(async (decks) => {
+        const ids = decks.slice(0, 12).map((deck) => deck.fileId).filter(Boolean);
+        if (ids.length === 0) return;
+        try {
+          const data = await request(`/decks/comments?fileIds=${encodeURIComponent(ids.join(','))}`);
+          if (!mounted.current) return;
+          setCounts(data && typeof data.counts === 'object' && data.counts ? data.counts : {});
+        } catch {
+          // Leave whatever the last successful read produced.
+        }
+      }, []);
 
       const load = useCallback(async (quiet = false) => {
         if (reading.current) return;
@@ -846,6 +879,7 @@ window.__ModuleLoader__.load({
           if (!mounted.current) return;
           const decks = Array.isArray(data.decks) ? data.decks.filter((deck) => deck && typeof deck.fileId === 'string') : [];
           setState({ status: 'ready', decks, error: '', restart: false });
+          void loadCounts(decks);
         } catch (reason) {
           if (!mounted.current) return;
           const message = reasonMessage(reason);
@@ -859,7 +893,7 @@ window.__ModuleLoader__.load({
           if (mounted.current) setRefreshing(false);
           reading.current = false;
         }
-      }, []);
+      }, [loadCounts]);
 
       useEffect(() => {
         mounted.current = true;
@@ -957,6 +991,9 @@ window.__ModuleLoader__.load({
           ? t('decks.countOne')
           : t('decks.countMany', { count: state.decks.length });
 
+      const hasOpenComments = visible.some((deck) => Number.isFinite(counts[deck.fileId]?.unresolved)
+        && counts[deck.fileId].unresolved > 0);
+
       let body;
       if (state.status === 'loading' && state.decks.length === 0) {
         body = h('div', { role: 'status', 'aria-busy': 'true' },
@@ -999,6 +1036,7 @@ window.__ModuleLoader__.load({
             const tint = deckTint(deck.fileId);
             const busy = opening === deck.fileId;
             const source = deckSourceLabel(deck, t);
+            const openComments = Number.isFinite(counts[deck.fileId]?.unresolved) ? counts[deck.fileId].unresolved : 0;
             return h('li', { className: 'dsd-card', key: deck.fileId },
               h('div', {
                 className: 'dsd-main',
@@ -1016,6 +1054,11 @@ window.__ModuleLoader__.load({
                     h('div', { className: 'dsd-sheet-line tiny' })
                   ),
                   h('span', { className: 'dsd-tag' }, source),
+                  openComments > 0 ? h('span', {
+                    className: 'dsd-comments',
+                    title: openComments === 1 ? t('decks.comments.one') : t('decks.comments.many', { count: openComments }),
+                    'aria-label': t('decks.comments.aria', { count: openComments }),
+                  }, h(CommentIcon, { size: 10 }), String(openComments)) : null,
                   busy ? h('div', { className: 'dsd-busy' },
                     h('span', { className: 'dsd-spinner' }),
                     t('decks.opening')
@@ -1103,6 +1146,7 @@ window.__ModuleLoader__.load({
               h('button', { type: 'button', className: 'dsd-retry', onClick: () => setFailure('') }, t('close'))
             ) : null,
             body,
+            hasOpenComments ? h('p', { className: 'dsd-note' }, t('decks.comments.readonly')) : null,
             h('p', { className: 'dsd-note' }, t('decks.recordNote')),
             notice ? h('div', { className: 'dsd-toast', role: 'status' }, notice) : null
           )
@@ -1149,6 +1193,8 @@ window.__ModuleLoader__.load({
       .dsd-sheet-line.short{width:76%}
       .dsd-sheet-line.tiny{width:52%}
       .dsd-tag{position:absolute;right:8px;bottom:8px;padding:1px 6px;border-radius:999px;background:var(--dsw-alias-bg-base);background:color-mix(in srgb,var(--dsd-tint) 17%,var(--dsw-alias-bg-base));color:color-mix(in srgb,var(--dsd-tint) 72%,var(--dsw-alias-label-primary));font-size:10px;line-height:16px;font-weight:600;white-space:nowrap}
+      .dsd-comments{position:absolute;left:8px;top:8px;display:inline-flex;align-items:center;gap:3px;padding:1px 7px 1px 5px;border-radius:999px;background:var(--dsw-alias-bg-base);background:color-mix(in srgb,var(--dsd-tint) 17%,var(--dsw-alias-bg-base));color:color-mix(in srgb,var(--dsd-tint) 74%,var(--dsw-alias-label-primary));font-size:10px;line-height:16px;font-weight:650;font-variant-numeric:tabular-nums}
+      .dsd-note + .dsd-note{margin-top:4px}
       .dsd-info{min-width:0;padding:0 2px}
       .dsd-name{font-weight:550;font-size:13.5px;line-height:19px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
       .dsd-meta{display:flex;align-items:center;gap:6px;color:var(--dsw-alias-label-tertiary, var(--dsw-alias-label-secondary));font-size:11.5px;line-height:17px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}

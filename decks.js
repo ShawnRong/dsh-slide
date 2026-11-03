@@ -19,7 +19,7 @@ const MAX_DECKS = 200;
 const MAX_NAME = 200;
 const MAX_PATH = 4096;
 const FILE_ID = /^[A-Za-z0-9_-]{1,200}$/;
-const SOURCES = new Set(['import', 'export', 'pdf', 'open']);
+const SOURCES = new Set(['import', 'export', 'update', 'pdf', 'open']);
 const WEB_VIEW = /^https:\/\/(?:docs|drive)\.google\.com\/[^\s]+$/i;
 
 export function dshHome() {

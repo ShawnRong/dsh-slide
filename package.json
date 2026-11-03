@@ -1,30 +1,71 @@
 {
-  "name": "@local/dsh-slide",
-  "version": "0.3.0",
-  "private": true,
+  "name": "dsh-plugin-google-slides",
+  "version": "1.1.0",
   "type": "module",
-  "description": "Google Slides deck studio for DSH: bundled deck-design and pptx-deck-edit skills, Google sign-in, a google_slides tool, and a Decks panel for decks the agent touched.",
+  "description": "Google Slides deck studio for DSH: bundled deck-design and pptx-deck-edit skills, Google sign-in, a google_slides tool with a read-only comment bridge, and a Decks panel for decks the agent touched.",
+  "license": "MIT",
+  "author": "Shawn Rong",
+  "icon": "./icon.svg",
+  "main": "./index.js",
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "deepseek-harness",
+    "google-slides",
+    "pptx",
+    "presentation",
+    "deck",
+    "agent-skill"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ShawnRong/dsh-slide.git"
+  },
+  "homepage": "https://github.com/ShawnRong/dsh-slide#readme",
+  "bugs": {
+    "url": "https://github.com/ShawnRong/dsh-slide/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "engines": {
+    "dsh": ">=0.2.1-rc.3",
+    "node": ">=20"
+  },
   "scripts": {
     "migrate-credentials": "node scripts/migrate-credentials.mjs",
-    "smoke": "node scripts/smoke-decks.mjs"
+    "smoke": "node scripts/smoke-decks.mjs && node scripts/smoke-comments.mjs"
   },
   "exports": {
     ".": "./index.js",
     "./client": "./client.js",
+    "./decks": "./decks.js",
+    "./comments": "./comments.js",
+    "./cordis.patch.yml": "./cordis.patch.yml",
     "./locale/*.json": "./locale/*.json",
-    "./icon": "./icon.svg"
+    "./icon.svg": "./icon.svg",
+    "./package.json": "./package.json"
   },
   "files": [
     "index.js",
     "decks.js",
+    "comments.js",
     "client.js",
     "cordis.patch.yml",
-    "locale/*.json",
     "icon.svg",
+    "locale/*.json",
     "scripts/**",
-    "pptx-deck-edit/**",
     "deck-design/**",
-    "README.md"
+    "pptx-deck-edit/**",
+    "README.md",
+    "README.zh.md",
+    "CHANGELOG.md",
+    "LICENSE",
+    "screenshots/settings-google-slides-final.png",
+    "docs/DEVELOPMENT.md",
+    "!**/__pycache__",
+    "!**/*.pyc",
+    "!**/.DS_Store"
   ],
   "dsh": {
     "bundle": {

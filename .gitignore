@@ -4,6 +4,7 @@ work/
 
 # One-off browser-automation scripts and their screenshots.
 ego/
+.ego/
 
 # Ad-hoc test deck used for permission checks; not part of the bundle.
 access-check.pptx
@@ -21,3 +22,6 @@ __pycache__/
 # Logs
 *.log
 npm-debug.log*
+
+# Packed releases (`npm pack`)
+*.tgz
